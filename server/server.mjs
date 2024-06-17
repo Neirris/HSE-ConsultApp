@@ -31,6 +31,8 @@ const io = new Server(server, {
   }
 })
 
+console.log('API_BASE_URL:', process.env.API_BASE_URL)
+
 app.use(bodyParser.json({ limit: '25mb' }))
 app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }))
 app.use(cookieParser())
