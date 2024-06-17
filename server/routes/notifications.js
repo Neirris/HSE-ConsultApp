@@ -1,45 +1,62 @@
 import express from 'express'
-import axios from 'axios'
+import db from '../data/database.js'
 
-const API_BASE_URL = 'https://hse-consult-app.vercel.app'
 const notificationsRouter = express.Router()
 
-notificationsRouter.get('/notifications', async (req, res) => {
+notificationsRouter.get('/notifications', (req, res) => {
   const token = req.cookies.token
 
   if (!token) {
     return res.status(401).json({ error: 'Не авторизован' })
   }
 
-  try {
-    const response = await axios.get(`${API_BASE_URL}/notifications`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    res.json(response.data)
-  } catch (err) {
-    console.error('Ошибка при получении уведомлений:', err.message)
-    res.status(500).json({ error: err.message })
-  }
+  db.get(`SELECT id FROM users WHERE token = ?`, [token], (err, user) => {
+    if (err) {
+      console.error('Ошибка при получении пользователя:', err.message)
+      return res.status(500).json({ error: err.message })
+    }
+    if (!user) {
+      return res.status(401).json({ error: 'Не авторизован' })
+    }
+
+    const userId = user.id
+
+    db.all(
+      `SELECT * FROM notifications WHERE userId = ? ORDER BY timestamp DESC`,
+      [userId],
+      (err, rows) => {
+        if (err) {
+          console.error('Ошибка при получении уведомлений:', err.message)
+          return res.status(500).json({ error: err.message })
+        }
+        res.json(rows)
+      }
+    )
+  })
 })
 
-notificationsRouter.post('/notifications/read', async (req, res) => {
+notificationsRouter.post('/notifications/read', (req, res) => {
   const { notificationId } = req.body
 
-  try {
-    const response = await axios.post(`${API_BASE_URL}/notifications/read`, { notificationId })
-    res.json(response.data)
-  } catch (err) {
-    console.error('Ошибка при обновлении уведомления:', err.message)
-    res.status(500).json({ error: err.message })
-  }
+  db.run(`UPDATE notifications SET isRead = 1 WHERE id = ?`, [notificationId], function (err) {
+    if (err) {
+      console.error('Ошибка при обновлении уведомления:', err.message)
+      return res.status(500).json({ error: err.message })
+    }
+    res.json({ success: true })
+  })
 })
 
-const createNotification = async (userId, message, link, senderId) => {
-  try {
-    await axios.post(`${API_BASE_URL}/notifications`, { userId, message, link, senderId })
-  } catch (err) {
-    console.error('Не удалось сохранить уведомление:', err.message)
-  }
+const createNotification = (userId, message, link, senderId) => {
+  db.run(
+    `INSERT INTO notifications (userId, message, link, senderId) VALUES (?, ?, ?, ?)`,
+    [userId, message, link, senderId],
+    function (err) {
+      if (err) {
+        console.error('Не удалось сохранить уведомление:', err.message)
+      }
+    }
+  )
 }
 
 const sendNotification = (io, userId, message, link) => {

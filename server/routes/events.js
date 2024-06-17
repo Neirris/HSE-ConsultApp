@@ -1,188 +1,275 @@
 import express from 'express'
-import axios from 'axios'
+import db from '../data/database.js'
 import { createNotification, sendNotification } from './notifications.js'
-
-const API_BASE_URL = 'https://hse-consult-app.vercel.app'
 
 const eventsRouter = (io) => {
   const router = express.Router()
 
-  router.post('/events', async (req, res) => {
+  router.post('/events', (req, res) => {
     const { teacherId, title, description, slots, start, end } = req.body
 
     if (!teacherId) {
       return res.status(400).json({ error: 'Teacher ID is required' })
     }
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/events`, {
-        teacherId,
-        title,
-        description,
-        slots,
-        start,
-        end
-      })
-      res.status(201).json(response.data)
-    } catch (err) {
-      console.error('Ошибка в создании события:', err.message)
-      res.status(500).json({ error: 'Ошибка в создании события' })
-    }
+    db.run(
+      `INSERT INTO consultations (teacherId, title, description, slots, start, end)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [teacherId, title, description, slots, start, end],
+      function (err) {
+        if (err) {
+          res.status(500).json({ error: 'Ошибка в создании события' })
+        } else {
+          const newEvent = {
+            id: this.lastID,
+            teacherId,
+            title,
+            description,
+            slots,
+            start,
+            end
+          }
+
+          res.status(201).json(newEvent)
+        }
+      }
+    )
   })
 
-  router.put('/events/:id', async (req, res) => {
+  router.put('/events/:id', (req, res) => {
     const eventId = req.params.id
     const { teacherId, title, description, slots, start, end } = req.body
 
-    try {
-      const response = await axios.put(`${API_BASE_URL}/events/${eventId}`, {
-        teacherId,
-        title,
-        description,
-        slots,
-        start,
-        end
-      })
-      res.status(200).json(response.data)
-    } catch (err) {
-      console.error('Ошибка в обновлении события:', err.message)
-      res.status(500).json({ error: 'Ошибка в обновлении события' })
-    }
+    db.run(
+      `UPDATE consultations SET teacherId = ?, title = ?, description = ?, slots = ?, start = ?, end = ?
+       WHERE id = ?`,
+      [teacherId, title, description, slots, start, end, eventId],
+      function (err) {
+        if (err) {
+          res.status(500).json({ error: 'Ошибка в обновлении события' })
+        } else {
+          res.status(200).json({
+            id: eventId,
+            teacherId,
+            title,
+            description,
+            slots,
+            start,
+            end
+          })
+        }
+      }
+    )
   })
 
-  router.delete('/events/:id', async (req, res) => {
+  router.delete('/events/:id', (req, res) => {
     const eventId = req.params.id
 
-    try {
-      await axios.delete(`${API_BASE_URL}/events/${eventId}`)
-
-      const response = await axios.get(`${API_BASE_URL}/events/${eventId}/registrations`)
-      const rows = response.data
-
-      rows.forEach((row) => {
-        const message = `Событие "${eventId}" было отменено`
-        const link = `/users/id/${eventId}`
-        createNotification(row.studentId, message, link, req.user.id)
-        sendNotification(io, row.studentId, message, link)
-      })
-
-      res.status(200).json({ message: 'Событие успешно удалено' })
-    } catch (err) {
-      console.error('Ошибка удаления:', err.message)
-      res.status(500).json({ error: 'Ошибка удаления' })
-    }
+    db.run('DELETE FROM consultations WHERE id = ?', [eventId], function (err) {
+      if (err) {
+        res.status(500).json({ error: 'Ошибка удаления' })
+      } else {
+        db.all(
+          `SELECT studentId FROM consultationRegistrations WHERE consultationId = ?`,
+          [eventId],
+          (err, rows) => {
+            if (err) {
+              console.error('Ошибка получения данных записей:', err)
+            } else {
+              rows.forEach((row) => {
+                const message = `Событие "${eventId}" было отменено`
+                const link = `/users/id/${eventId}`
+                createNotification(row.studentId, message, link, req.user.id)
+                sendNotification(io, row.studentId, message, link)
+              })
+            }
+          }
+        )
+        res.status(200).json({ message: 'Событие успешно удалено' })
+      }
+    })
   })
 
-  router.get('/events', async (req, res) => {
+  router.get('/events', (req, res) => {
     const teacherId = req.query.teacherId
     const studentId = req.query.studentId
 
-    try {
-      if (teacherId) {
-        const response = await axios.get(`${API_BASE_URL}/events`, { params: { teacherId } })
-        res.status(200).json(response.data)
-      } else if (studentId) {
-        const response = await axios.get(`${API_BASE_URL}/events`, { params: { studentId } })
-        res.status(200).json(response.data)
-      } else {
-        res.status(400).json({ error: 'Необходим Teacher ID или Student ID ' })
-      }
-    } catch (err) {
-      console.error('Ошибка получения данных событий:', err.message)
-      res.status(500).json({ error: 'Ошибка получения данных событий' })
+    if (teacherId) {
+      db.all('SELECT * FROM consultations WHERE teacherId = ?', [teacherId], (err, rows) => {
+        if (err) {
+          res.status(500).json({ error: 'Ошибка получения данных событий' })
+        } else {
+          res.status(200).json(rows)
+        }
+      })
+    } else if (studentId) {
+      db.all(
+        `SELECT consultations.* 
+         FROM consultations 
+         JOIN consultationRegistrations ON consultations.id = consultationRegistrations.consultationId 
+         WHERE consultationRegistrations.studentId = ?`,
+        [studentId],
+        (err, rows) => {
+          if (err) {
+            console.error('Error fetching events:', err)
+            res.status(500).json({ error: 'Ошибка получения данных событий' })
+          } else {
+            res.status(200).json(rows)
+          }
+        }
+      )
+    } else {
+      res.status(400).json({ error: 'Необходим Teacher ID или Student ID ' })
     }
   })
 
-  router.get('/events/:id', async (req, res) => {
+  router.get('/events/:id', (req, res) => {
     const eventId = req.params.id
 
-    try {
-      const response = await axios.get(`${API_BASE_URL}/events/${eventId}`)
-      if (response.data) {
-        res.status(200).json(response.data)
-      } else {
+    db.get('SELECT * FROM consultations WHERE id = ?', [eventId], (err, row) => {
+      if (err) {
+        console.error('Error fetching event:', err)
+        res.status(500).json({ error: 'Ошибка получения данных событий' })
+      } else if (!row) {
         res.status(404).json({ error: 'Событие не найдено' })
+      } else {
+        res.status(200).json(row)
       }
-    } catch (err) {
-      console.error('Ошибка получения данных событий:', err.message)
-      res.status(500).json({ error: 'Ошибка получения данных событий' })
-    }
+    })
   })
 
-  router.get('/search', async (req, res) => {
+  router.get('/search', (req, res) => {
     const query = req.query.query
+    const sql = `
+      SELECT consultations.*, COUNT(consultationRegistrations.id) AS registrations
+      FROM consultations
+      LEFT JOIN consultationRegistrations
+      ON consultations.id = consultationRegistrations.consultationId
+      WHERE consultations.title LIKE ? OR consultations.id IN (
+        SELECT consultationRegistrations.consultationId
+        FROM consultationRegistrations
+        JOIN users ON consultationRegistrations.studentId = users.id
+        WHERE users.fullName LIKE ?
+      )
+      GROUP BY consultations.id
+    `
+    const params = [`%${query}%`, `%${query}%`]
 
-    try {
-      const response = await axios.get(`${API_BASE_URL}/search`, { params: { query } })
-      res.json(response.data)
-    } catch (err) {
-      console.error('Ошибка при поиске:', err.message)
-      res.status(500).json({ error: err.message })
-    }
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message })
+      }
+      res.json(rows)
+    })
   })
 
-  router.get('/events/:id/registrations', async (req, res) => {
+  router.get('/events/:id/registrations', (req, res) => {
     const eventId = req.params.id
 
-    try {
-      const response = await axios.get(`${API_BASE_URL}/events/${eventId}/registrations`)
-      res.status(200).json(response.data)
-    } catch (err) {
-      console.error('Ошибка получения данных записей:', err.message)
-      res.status(500).json({ error: 'Ошибка получения данных записей' })
-    }
+    db.all(
+      `SELECT profiles.fullName, users.email, users.id
+       FROM consultationRegistrations
+       JOIN users ON consultationRegistrations.studentId = users.id
+       JOIN profiles ON users.id = profiles.userId
+       WHERE consultationRegistrations.consultationId = ?`,
+      [eventId],
+      (err, rows) => {
+        if (err) {
+          console.error('Ошибка получения данных записей:', err)
+          res.status(500).json({ error: 'Ошибка получения данных записей' })
+        } else {
+          res.status(200).json(rows)
+        }
+      }
+    )
   })
 
-  router.post('/events/:id/registrations', async (req, res) => {
+  router.post('/events/:id/registrations', (req, res) => {
     const eventId = req.params.id
     const { studentId } = req.body
 
-    try {
-      const existingRegistration = await axios.get(
-        `${API_BASE_URL}/events/${eventId}/registrations`,
-        {
-          params: { studentId }
+    db.get(
+      'SELECT * FROM consultationRegistrations WHERE consultationId = ? AND studentId = ?',
+      [eventId, studentId],
+      (err, row) => {
+        if (err) {
+          console.error('Error checking existing registration:', err)
+          return res.status(500).json({ error: 'Ошибка проверки существующих записей' })
         }
-      )
 
-      if (existingRegistration.data) {
-        return res.status(400).json({ error: 'Студент уже записан на это событие' })
+        if (row) {
+          return res.status(400).json({ error: 'Студент уже записан на это событие' })
+        }
+
+        db.run(
+          'INSERT INTO consultationRegistrations (consultationId, studentId) VALUES (?, ?)',
+          [eventId, studentId],
+          function (err) {
+            if (err) {
+              console.error('Error adding registration:', err)
+              res.status(500).json({ error: 'Ошибка в добавлении записи' })
+            } else {
+              db.get(
+                `SELECT consultations.title, consultations.start, profiles.fullName as teacherName, users.id as teacherId
+                 FROM consultations
+                 JOIN users ON consultations.teacherId = users.id
+                 JOIN profiles ON users.id = profiles.userId
+                 WHERE consultations.id = ?`,
+                [eventId],
+                (err, event) => {
+                  if (err) {
+                    console.error('Error fetching event:', err)
+                    res.status(500).json({ error: 'Ошибка в получении данных события' })
+                  } else {
+                    const message = `${event.teacherName} добавил вас в событие "${event.title}" на ${new Date(event.start).toLocaleDateString()}`
+                    const link = `/users/id/${event.teacherId}`
+                    createNotification(studentId, message, link, event.teacherId)
+                    sendNotification(io, studentId, message, link)
+                    res.status(201).json({ message: 'Запись добавлена успешно' })
+                  }
+                }
+              )
+            }
+          }
+        )
       }
-
-      await axios.post(`${API_BASE_URL}/events/${eventId}/registrations`, { studentId })
-
-      const response = await axios.get(`${API_BASE_URL}/events/${eventId}`)
-      const event = response.data
-      const message = `${event.teacherName} добавил вас в событие "${event.title}" на ${new Date(event.start).toLocaleDateString()}`
-      const link = `/users/id/${event.teacherId}`
-      createNotification(studentId, message, link, event.teacherId)
-      sendNotification(io, studentId, message, link)
-
-      res.status(201).json({ message: 'Запись добавлена успешно' })
-    } catch (err) {
-      console.error('Ошибка в добавлении записи:', err.message)
-      res.status(500).json({ error: 'Ошибка в добавлении записи' })
-    }
+    )
   })
 
-  router.delete('/events/:eventId/registrations/:participantId', async (req, res) => {
+  router.delete('/events/:eventId/registrations/:participantId', (req, res) => {
     const { eventId, participantId } = req.params
 
-    try {
-      await axios.delete(`${API_BASE_URL}/events/${eventId}/registrations/${participantId}`)
-
-      const response = await axios.get(`${API_BASE_URL}/events/${eventId}`)
-      const event = response.data
-      const message = `${event.teacherName} отменил вашу запись на событие "${event.title}" на ${new Date(event.start).toLocaleDateString()}`
-      const link = `/users/id/${event.teacherId}`
-      createNotification(participantId, message, link, event.teacherId)
-      sendNotification(io, participantId, message, link)
-
-      res.status(200).json({ message: 'Registration deleted successfully' })
-    } catch (err) {
-      console.error('Failed to delete registration:', err.message)
-      res.status(500).json({ error: 'Failed to delete registration' })
-    }
+    db.run(
+      'DELETE FROM consultationRegistrations WHERE consultationId = ? AND studentId = ?',
+      [eventId, participantId],
+      function (err) {
+        if (err) {
+          console.error('Error deleting registration:', err)
+          res.status(500).json({ error: 'Failed to delete registration' })
+        } else {
+          db.get(
+            `SELECT consultations.title, consultations.start, profiles.fullName as teacherName, users.id as teacherId
+             FROM consultations
+             JOIN users ON consultations.teacherId = users.id
+             JOIN profiles ON users.id = profiles.userId
+             WHERE consultations.id = ?`,
+            [eventId],
+            (err, event) => {
+              if (err) {
+                console.error('Error fetching event:', err)
+                res.status(500).json({ error: 'Failed to fetch event' })
+              } else {
+                const message = `${event.teacherName} отменил вашу запись на событие "${event.title}" на ${new Date(event.start).toLocaleDateString()}`
+                const link = `/users/id/${event.teacherId}`
+                createNotification(participantId, message, link, event.teacherId)
+                sendNotification(io, participantId, message, link)
+                res.status(200).json({ message: 'Registration deleted successfully' })
+              }
+            }
+          )
+        }
+      }
+    )
   })
 
   return router

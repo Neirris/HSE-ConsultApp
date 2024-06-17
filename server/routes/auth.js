@@ -1,71 +1,100 @@
-import axios from 'axios'
+import express from 'express'
+import db from '../data/database.js'
+import CryptoJS from 'crypto-js'
 
-const API_BASE_URL = 'https://hse-consult-app.vercel.app'
+const authRouter = express.Router()
 
-export const checkAuth = async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/check-auth`, {
-      withCredentials: true
-    })
-    const { accountType, userId } = response.data
-    return { accountType, userId }
-  } catch (error) {
-    console.error('Не авторизован:', error)
-    return null
-  }
+const createPermanentToken = (email, password) => {
+  const firstHash = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
+  const combined = email + firstHash
+  const permanentToken = CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex)
+  return permanentToken
 }
 
-export const register = async (email, password, fullName) => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/register`,
-      {
-        email,
-        password,
-        fullName
-      },
-      {
-        withCredentials: true
+authRouter.post('/register', (req, res) => {
+  const { email, password, fullName } = req.body
+  const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
+  const permanentToken = createPermanentToken(email, hashedPassword)
+
+  db.run(
+    `
+    INSERT INTO users (email, password, accountType, token)
+    VALUES (?, ?, 'student', ?)
+  `,
+    [email, hashedPassword, permanentToken],
+    function (err) {
+      if (err) {
+        return res.status(400).json({ error: 'Пользователь уже существует' })
       }
-    )
-    return response.data
-  } catch (error) {
-    console.error('Ошибка регистрации:', error)
-    throw error
-  }
-}
+      const userId = this.lastID
 
-export const login = async (email, password) => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/login`,
-      {
-        email,
-        password
-      },
-      {
-        withCredentials: true
-      }
-    )
-    return response.data
-  } catch (error) {
-    console.error('Ошибка входа:', error)
-    throw error
-  }
-}
+      db.run(
+        `
+      UPDATE profiles
+      SET fullName = ?
+      WHERE userId = ?
+    `,
+        [fullName, userId]
+      )
 
-export const logout = async () => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/logout`,
-      {},
-      {
-        withCredentials: true
+      res.cookie('token', permanentToken, { httpOnly: true })
+
+      res.status(200).json({ message: 'Регистрация выполнена', accountType: 'student' })
+    }
+  )
+})
+
+authRouter.post('/login', (req, res) => {
+  const { email, password } = req.body
+
+  db.get(
+    `
+    SELECT * FROM users WHERE email = ?
+  `,
+    [email],
+    (err, user) => {
+      if (err || !user) {
+        return res.status(400).json({ error: 'Пользователь не найден' })
       }
-    )
-    return response.data
-  } catch (error) {
-    console.error('Ошибка выхода:', error)
-    throw error
+      const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
+      if (hashedPassword !== user.password) {
+        return res.status(400).json({ error: 'Неправильный пароль' })
+      }
+
+      const permanentToken = user.token
+
+      res.cookie('token', permanentToken, { httpOnly: true })
+
+      res.status(200).json({ message: 'Вход выполнен', accountType: user.accountType })
+    }
+  )
+})
+
+authRouter.get('/check-auth', (req, res) => {
+  const token = req.cookies.token
+
+  if (!token) {
+    return res.status(401).json({ error: 'Не авторизован' })
   }
-}
+
+  db.get(
+    `
+    SELECT * FROM users WHERE token = ?
+  `,
+    [token],
+    (err, user) => {
+      if (err || !user) {
+        return res.status(401).json({ error: 'Не авторизован' })
+      }
+
+      res.status(200).json({ userId: user.id, accountType: user.accountType })
+    }
+  )
+})
+
+authRouter.post('/logout', (req, res) => {
+  res.clearCookie('token', { httpOnly: true })
+  res.status(200).json({ message: 'Выход выполнен' })
+})
+
+export default authRouter
