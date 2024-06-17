@@ -18,14 +18,15 @@ import {
 } from './routes/notifications.js'
 import adminRouter from './routes/admin.js'
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 dotenv.config()
 
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    // eslint-disable-next-line no-undef
-    origin: process.env.API_BASE_URL,
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
   }
@@ -36,12 +37,25 @@ console.log('API_BASE_URL:', process.env.API_BASE_URL)
 app.use(bodyParser.json({ limit: '25mb' }))
 app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }))
 app.use(cookieParser())
-// eslint-disable-next-line no-undef
-app.use(cors({ origin: process.env.API_BASE_URL, credentials: true }))
+app.use(
+  cors({
+    origin: '*',
+    credentials: true
+  })
+)
 
 initializeDatabase()
 seedDatabase()
 
+// Настройка для обслуживания статических файлов
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Предположим, что папка dist находится в корне проекта
+const distPath = path.join(__dirname, 'dist')
+app.use(express.static(distPath))
+
+// Настройка маршрутов
 app.use(authRouter)
 app.use(profileRouter)
 app.use(usersRouter)
@@ -59,7 +73,11 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {})
 })
 
-// eslint-disable-next-line no-undef
+// Обслуживание фронтенд-приложения для всех остальных маршрутов
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(distPath, 'index.html'))
+})
+
 const PORT = process.env.PORT || 3000
 server.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`)
