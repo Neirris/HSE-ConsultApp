@@ -4,8 +4,7 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import { Server } from 'socket.io'
 import http from 'http'
-import { initializeDatabase } from './data/database.js'
-import { seedDatabase } from './data/seed.js'
+import { initializeDatabase, seedDatabase } from './data/database.js'
 import authRouter from './routes/auth.js'
 import profileRouter from './routes/profile.js'
 import usersRouter from './routes/users.js'
@@ -44,9 +43,6 @@ app.use(
   })
 )
 
-initializeDatabase()
-seedDatabase()
-
 // Настройка для обслуживания статических файлов
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -63,6 +59,21 @@ app.use(chatsRouter(io))
 app.use(eventsRouter(io))
 app.use(notificationsRouter)
 app.use('/admin', adminRouter)
+
+// Маршрут для инициализации базы данных
+app.post('/initialize-database', (req, res) => {
+  const { defaultProfileImage } = req.body
+  // Вызов функции инициализации базы данных
+  initializeDatabase(defaultProfileImage)
+  res.status(200).json({ message: 'База данных успешно инициализирована' })
+})
+
+// Маршрут для заполнения базы данных начальными данными
+app.post('/seed-database', (req, res) => {
+  // Вызов функции заполнения базы данных начальными данными
+  seedDatabase()
+  res.status(200).json({ message: 'База данных успешно заполнена начальными данными' })
+})
 
 // Подключение к WebSocket
 io.on('connection', (socket) => {
