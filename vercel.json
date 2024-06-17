@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "server/server.mjs", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+  ],
+  "routes": [
+    {
+      "src": "/(auth|profile|users|chats|events|notifications|admin)/(.*)",
+      "dest": "/server/server.mjs"
+    },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
