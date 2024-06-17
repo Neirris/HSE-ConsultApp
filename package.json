@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"nodemon server/server.mjs\"",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "start": "node server/server.mjs",
+    "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "format": "prettier --write src/"
   },
