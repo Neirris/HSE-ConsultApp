@@ -1,6 +1,5 @@
 import express from 'express'
 import db from '../data/database.js'
-
 const usersRouter = express.Router()
 
 usersRouter.get('/users', (req, res) => {
@@ -14,7 +13,6 @@ usersRouter.get('/users', (req, res) => {
     [accountType],
     (err, rows) => {
       if (err) {
-        console.error('Error fetching users:', err)
         res.status(500).json({ error: 'Ошибка в получении данных пользователей' })
       } else {
         res.status(200).json(rows)
@@ -36,7 +34,6 @@ usersRouter.get('/users/not-registered/:eventId', (req, res) => {
     [eventId],
     (err, rows) => {
       if (err) {
-        console.error('Error fetching users:', err)
         res.status(500).json({ error: 'Ошибка в получении данных пользователей' })
       } else {
         res.status(200).json(rows)
@@ -51,10 +48,11 @@ usersRouter.get('/users/id/:id', (req, res) => {
 
   db.get(
     `
-    SELECT u.email, p.fullName, p.profileImage, s.name as section, p.description, u.token, u.accountType
+    SELECT u.email, p.fullName, p.profileImage, s.name as section, p.description, p.mainContact, ep.name as educationProgram, u.token, u.accountType
     FROM users u
     JOIN profiles p ON u.id = p.userId
     JOIN sections s ON p.sectionId = s.id
+    LEFT JOIN educationPrograms ep ON p.educationProgramId = ep.id
     WHERE u.id = ?
   `,
     [userId],
@@ -70,6 +68,8 @@ usersRouter.get('/users/id/:id', (req, res) => {
           profileImage: row.profileImage,
           section: row.section,
           description: row.description,
+          mainContact: row.mainContact,
+          educationProgram: row.educationProgram,
           isOwnProfile,
           accountType: row.accountType
         })
@@ -82,7 +82,8 @@ usersRouter.get('/users/id/:id', (req, res) => {
 
 usersRouter.put('/users/id/:id', (req, res) => {
   const userId = req.params.id
-  const { fullName, email, section, description, profileImage } = req.body
+  const { fullName, email, mainContact, educationProgram, section, description, profileImage } =
+    req.body
 
   db.get(
     `
@@ -112,10 +113,18 @@ usersRouter.put('/users/id/:id', (req, res) => {
           db.run(
             `
         UPDATE profiles
-        SET fullName = ?, description = ?, sectionId = (SELECT id FROM sections WHERE name = ?), profileImage = ?
+        SET fullName = ?, description = ?, mainContact = ?, educationProgramId = (SELECT id FROM educationPrograms WHERE name = ?), sectionId = (SELECT id FROM sections WHERE name = ?), profileImage = ?
         WHERE userId = ?
       `,
-            [fullName, description, section, profileImage, userId],
+            [
+              fullName,
+              description || '',
+              mainContact,
+              educationProgram,
+              section,
+              profileImage,
+              userId
+            ],
             function (err) {
               if (err) {
                 return res.status(500).json({ error: err.message })
@@ -133,6 +142,21 @@ usersRouter.get('/sections', (req, res) => {
   db.all(
     `
     SELECT name FROM sections
+  `,
+    [],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message })
+      }
+      res.json(rows)
+    }
+  )
+})
+
+usersRouter.get('/education-programs', (req, res) => {
+  db.all(
+    `
+    SELECT name FROM educationPrograms
   `,
     [],
     (err, rows) => {
