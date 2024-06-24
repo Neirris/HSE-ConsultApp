@@ -15,7 +15,8 @@
                                         <v-spacer></v-spacer>
                                         <v-dialog v-model="dialog" max-width="500px">
                                             <template #activator="{ props }">
-                                                <v-btn color="primary" dark class="mb-2" v-bind="props">
+                                                <v-btn color="primary" dark class="mb-2" v-bind="props"
+                                                    @click="addItem">
                                                     Добавить
                                                 </v-btn>
                                             </template>
@@ -29,12 +30,14 @@
                                                         <v-row>
                                                             <v-col v-for="field in headers" :key="field.value"
                                                                 cols="12">
-                                                                <v-text-field v-if="field.value !== 'accountType'"
+                                                                <v-text-field
+                                                                    v-if="field.value !== 'accountType' && field.value !== 'actions'"
                                                                     v-model="editedItem[field.value]"
                                                                     :label="field.text"
                                                                     :disabled="field.value === 'id'">
                                                                 </v-text-field>
-                                                                <v-select v-else v-model="editedItem[field.value]"
+                                                                <v-select v-else-if="field.value === 'accountType'"
+                                                                    v-model="editedItem[field.value]"
                                                                     :items="accountTypes" :label="field.text">
                                                                 </v-select>
                                                             </v-col>
@@ -73,6 +76,9 @@ import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+
 const route = useRoute()
 const currentTable = ref('')
 const headers = ref([])
@@ -85,20 +91,13 @@ const accountTypes = ['student', 'teacher', 'admin']
 const fetchTableData = async (tableName) => {
     loading.value = true
     try {
-        const response = await axios.get(`http://localhost:3000/admin/${tableName}`)
-        if (response.data.length > 0) {
-            headers.value = Object.keys(response.data[0]).map(key => ({
-                text: key.charAt(0).toUpperCase() + key.slice(1),
-                value: key
-            }))
-            headers.value.push({ text: 'Actions', value: 'actions', sortable: false })
-            items.value = response.data
-        } else {
-            headers.value = []
-            items.value = []
-        }
+        const response = await axios.get(`${API_BASE_URL}/admin/${tableName}`)
+        headers.value = response.data.headers
+        items.value = response.data.rows
     } catch (error) {
         console.error(`Ошибка при загрузке данных для таблицы ${tableName}:`, error)
+        headers.value = [{ text: 'Actions', value: 'actions', sortable: false }]
+        items.value = []
     } finally {
         loading.value = false
     }
@@ -109,9 +108,18 @@ const editItem = (item) => {
     dialog.value = true
 }
 
+const addItem = () => {
+    if (headers.value.length === 0) {
+        console.error('Не удалось добавить элемент: нет заголовков')
+        return
+    }
+    editedItem.value = {}
+    dialog.value = true
+}
+
 const deleteItem = async (item) => {
     try {
-        await axios.delete(`http://localhost:3000/admin/${currentTable.value}/${item.id}`)
+        await axios.delete(`${API_BASE_URL}/admin/${currentTable.value}/${item.id}`)
         items.value = items.value.filter(i => i.id !== item.id)
     } catch (error) {
         console.error(`Ошибка при удалении элемента из таблицы ${currentTable.value}:`, error)
@@ -121,7 +129,7 @@ const deleteItem = async (item) => {
 const save = async () => {
     if (editedItem.value.id) {
         try {
-            await axios.put(`http://localhost:3000/admin/${currentTable.value}/${editedItem.value.id}`, editedItem.value)
+            await axios.put(`${API_BASE_URL}/admin/${currentTable.value}/${editedItem.value.id}`, editedItem.value)
             const index = items.value.findIndex(i => i.id === editedItem.value.id)
             if (index !== -1) {
                 items.value.splice(index, 1, editedItem.value)
@@ -131,7 +139,7 @@ const save = async () => {
         }
     } else {
         try {
-            const response = await axios.post(`http://localhost:3000/admin/${currentTable.value}`, editedItem.value)
+            const response = await axios.post(`${API_BASE_URL}/admin/${currentTable.value}`, editedItem.value)
             items.value.push(response.data)
         } catch (error) {
             console.error(`Ошибка при добавлении элемента в таблицу ${currentTable.value}:`, error)
