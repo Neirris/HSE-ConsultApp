@@ -56,6 +56,8 @@ import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { NButton, NInput, NFormItem, useMessage } from 'naive-ui';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const isLogin = ref(true);
 const email = ref('');
 const password = ref('');
@@ -120,7 +122,7 @@ const handleLogin = async () => {
     }
 
     try {
-        const response = await axios.post('http://localhost:3000/login', {
+        const response = await axios.post(`${API_BASE_URL}/login`, {
             email: email.value,
             password: password.value
         }, { withCredentials: true });
@@ -151,7 +153,7 @@ const handleRegister = async () => {
     }
 
     try {
-        const response = await axios.post('http://localhost:3000/register', {
+        const response = await axios.post(`${API_BASE_URL}/register`, {
             email: email.value,
             password: password.value,
             fullName: fullName.value
