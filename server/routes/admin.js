@@ -5,11 +5,26 @@ const adminRouter = express.Router()
 
 adminRouter.get('/:table', (req, res) => {
   const { table } = req.params
+
   db.all(`SELECT * FROM ${table}`, [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: 'Ошибка при получении данных из таблицы' })
     }
-    res.json(rows)
+
+    db.all(`PRAGMA table_info(${table})`, [], (err, columns) => {
+      if (err) {
+        return res.status(500).json({ error: 'Ошибка при получении информации о таблице' })
+      }
+
+      const headers = columns.map((col) => ({
+        text: col.name.charAt(0).toUpperCase() + col.name.slice(1),
+        value: col.name
+      }))
+
+      headers.push({ text: 'Actions', value: 'actions', sortable: false })
+
+      res.json({ headers, rows })
+    })
   })
 })
 
