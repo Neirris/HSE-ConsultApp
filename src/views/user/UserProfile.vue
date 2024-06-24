@@ -4,14 +4,18 @@
             <div v-if="userExists" class="profile-upper">
                 <div class="profile-upper-left"></div>
                 <div class="profile-upper-right">
-                    <img :src="`data:image/png;base64,${profileImage}`" alt="Profile" class="profile-image"
-                        @click="triggerFileInput" />
+                    <div class="profile-image-wrapper">
+                        <img :src="`data:image/png;base64,${profileImage}`" alt="Profile" class="profile-image"
+                            @click="triggerFileInput" />
+                    </div>
                     <input type="file" ref="fileInput" @change="handleFileChange" style="display: none" />
                     <div class="profile-info">
                         <template v-if="!isEditing">
                             <h1>{{ fullName }}</h1>
                             <p><strong>Email:</strong> {{ email }}</p>
-                            <p><strong>Группа:</strong> {{ section }}</p>
+                            <p><strong>Основное средство связи:</strong> {{ mainContact }}</p>
+                            <p><strong>Образовательная программа:</strong> {{ educationProgram }}</p>
+                            <p v-if="!isTeacher"><strong>Группа:</strong> {{ section }}</p>
                             <pre class="description"><strong>Описание:</strong> {{ description }}</pre>
                         </template>
                         <template v-else>
@@ -20,10 +24,17 @@
                                 <input v-model="fullName" type="text" />
                                 <label>Email:</label>
                                 <input v-model="email" type="email" maxlength="50" />
-                                <label>Группа:</label>
-                                <select v-model="section">
-                                    <option v-for="sect in sections" :key="sect.name" :value="sect.name">{{ sect.name }}
-                                    </option>
+                                <label>Основное средство связи:</label>
+                                <input v-model="mainContact" type="text" />
+                                <label v-if="!isTeacher">Образовательная программа:</label>
+                                <select v-if="!isTeacher" v-model="educationProgram">
+                                    <option v-for="program in educationPrograms" :key="program.name"
+                                        :value="program.name">{{ program.name }}</option>
+                                </select>
+                                <label v-if="!isTeacher">Группа:</label>
+                                <select v-if="!isTeacher" v-model="section">
+                                    <option v-for="sect in filteredSections" :key="sect.name" :value="sect.name">{{
+                                        sect.name }}</option>
                                 </select>
                                 <label>Описание:</label>
                                 <textarea v-model="description" maxlength="1000"></textarea>
@@ -51,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import FullCalendar from '@fullcalendar/vue3';
@@ -59,6 +70,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import EventView from '@/views/event/EventView.vue';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const route = useRoute();
 const router = useRouter();
@@ -70,10 +83,13 @@ const fullName = ref('');
 const email = ref('');
 const section = ref('');
 const description = ref('');
+const mainContact = ref('');
+const educationProgram = ref('');
 const userExists = ref(true);
 const isEditing = ref(false);
 const isOwnProfile = ref(false);
 const sections = ref([]);
+const educationPrograms = ref([]);
 const isLoading = ref(false);
 const isTeacher = ref(false);
 const isStudent = ref(false);
@@ -84,13 +100,15 @@ const registrations = ref(0);
 
 const fetchUserProfile = async () => {
     try {
-        const response = await axios.get(`http://localhost:3000/users/id/${userId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/users/id/${userId}`, { withCredentials: true });
         if (response.status === 200) {
             profileImage.value = response.data.profileImage;
             fullName.value = response.data.fullName;
             email.value = response.data.email;
             section.value = response.data.section;
             description.value = response.data.description;
+            mainContact.value = response.data.mainContact;
+            educationProgram.value = response.data.educationProgram;
             isOwnProfile.value = response.data.isOwnProfile;
             isTeacher.value = response.data.accountType === 'teacher';
             isStudent.value = response.data.accountType === 'student';
@@ -108,16 +126,25 @@ const fetchUserProfile = async () => {
 
 const fetchSections = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/sections', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/sections`, { withCredentials: true });
         sections.value = response.data;
     } catch (error) {
         console.error('Не удалось загрузить данные секций:', error);
     }
 };
 
+const fetchEducationPrograms = async () => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/education-programs`, { withCredentials: true });
+        educationPrograms.value = response.data;
+    } catch (error) {
+        console.error('Не удалось загрузить данные образовательных программ:', error);
+    }
+};
+
 const fetchTeacherEvents = async () => {
     try {
-        const response = await axios.get(`http://localhost:3000/events?teacherId=${userId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/events?teacherId=${userId}`, { withCredentials: true });
         events.value = response.data;
         calendarOptions.value.events = [...events.value];
     } catch (error) {
@@ -127,7 +154,7 @@ const fetchTeacherEvents = async () => {
 
 const handleWriteMessage = async () => {
     try {
-        const response = await axios.post('http://localhost:3000/chats/start', { userId }, { withCredentials: true });
+        const response = await axios.post(`${API_BASE_URL}/chats/start`, { userId }, { withCredentials: true });
         if (response.status === 200) {
             router.push(`/chats/sid=${response.data.sessionId}`);
         }
@@ -167,7 +194,7 @@ const toggleEditProfile = () => {
 };
 
 const saveProfileChanges = async () => {
-    if (!fullName.value || !email.value || !section.value || !description.value) {
+    if (!fullName.value || !email.value || (!isTeacher.value && !section.value)) {
         alert('Все поля должны быть заполнены');
         return;
     }
@@ -175,12 +202,14 @@ const saveProfileChanges = async () => {
     isLoading.value = true;
 
     try {
-        await axios.put(`http://localhost:3000/users/id/${userId}`, {
+        await axios.put(`${API_BASE_URL}/users/id/${userId}`, {
             fullName: fullName.value,
             email: email.value,
+            mainContact: mainContact.value,
+            educationProgram: educationProgram.value,
             section: section.value,
-            description: description.value,
-            profileImage: newProfileImage.value
+            description: description.value || '',
+            profileImage: newProfileImage.value || profileImage.value
         }, { withCredentials: true });
         alert('Профиль успешно обновлен');
         isEditing.value = false;
@@ -199,9 +228,9 @@ const handleDateClick = () => {
 
 const handleEventClick = async (info) => {
     try {
-        const response = await axios.get(`http://localhost:3000/events/${info.event.id}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/events/${info.event.id}`, { withCredentials: true });
         selectedEvent.value = response.data;
-        const registrationResponse = await axios.get(`http://localhost:3000/events/${info.event.id}/registrations`, { withCredentials: true });
+        const registrationResponse = await axios.get(`${API_BASE_URL}/events/${info.event.id}/registrations`, { withCredentials: true });
         registrations.value = registrationResponse.data.length;
         showEventView.value = true;
     } catch (error) {
@@ -243,9 +272,22 @@ const calendarOptions = ref({
     eventDisplay: 'block'
 });
 
+const filteredSections = computed(() => {
+    if (educationProgram.value === 'Программная инженерия') {
+        return sections.value.filter(section => section.name.startsWith('ПИ'));
+    } else if (educationProgram.value === 'Бизнес информатика') {
+        return sections.value.filter(section => section.name.startsWith('БИ'));
+    } else if (educationProgram.value === 'Разработка инф систем') {
+        return sections.value.filter(section => section.name.startsWith('РИС'));
+    } else {
+        return sections.value;
+    }
+});
+
 onMounted(() => {
     fetchUserProfile();
     fetchSections();
+    fetchEducationPrograms();
 });
 </script>
 
@@ -289,12 +331,19 @@ onMounted(() => {
     align-items: flex-start;
 }
 
-.profile-image {
-    width: 350px;
+.profile-image-wrapper {
+    width: 450px;
     height: 350px;
     margin-right: 20px;
     border-radius: 50%;
+    overflow: hidden;
     margin-top: 20px;
+}
+
+.profile-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .profile-info {
@@ -370,7 +419,7 @@ onMounted(() => {
 .edit-profile textarea {
     padding: 10px;
     margin-top: 5px;
-    font-size: 16px;
+    font-size: 18px;
     border: 1px solid #ccc;
     border-radius: 5px;
 }
