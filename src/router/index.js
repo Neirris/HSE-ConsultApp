@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AuthView from '../views/user/AuthView.vue'
 import AdminView from '../views/admin/AdminDashboard.vue'
+import StudentView from '../views/student/StudentMain.vue'
+import TeacherView from '../views/teacher/TeacherMain.vue'
 import CalendarView from '../views/calendar/CalendarSheet.vue'
 import ChatsView from '../views/chat/ChatList.vue'
 import UserProfile from '../views/user/UserProfile.vue'
@@ -43,6 +45,18 @@ const routes = [
     path: '/auth',
     name: 'Auth',
     component: AuthView
+  },
+  {
+    path: '/student',
+    name: 'StudentMain',
+    component: StudentView,
+    beforeEnter: authGuard(['student'])
+  },
+  {
+    path: '/teacher',
+    name: 'TeacherMain',
+    component: TeacherView,
+    beforeEnter: authGuard(['teacher'])
   },
   {
     path: '/student/calendar',
