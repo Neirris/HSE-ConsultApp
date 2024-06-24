@@ -10,7 +10,7 @@ const dbPath = path.join(__dirname, 'database.sqlite')
 
 const db = new sqlite3.Database(dbPath)
 
-const defaultProfileImagePath = path.resolve(__dirname, '../assets/icons/DefaultPFP.png') //?????? ошибка компилятора...
+const defaultProfileImagePath = path.resolve(__dirname, '../assets/icons/DefaultPFP.png')
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
 
 export const initializeDatabase = () => {
@@ -28,6 +28,14 @@ export const initializeDatabase = () => {
     db.run(`
       CREATE TABLE IF NOT EXISTS sections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE,
+        educationProgramId INTEGER,
+        FOREIGN KEY(educationProgramId) REFERENCES educationPrograms(id)
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS educationPrograms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
       )
     `)
@@ -40,8 +48,11 @@ export const initializeDatabase = () => {
         description TEXT,
         profileImage TEXT,
         sectionId INTEGER,
+        educationProgramId INTEGER,
+        mainContact TEXT,
         FOREIGN KEY(userId) REFERENCES users(id),
-        FOREIGN KEY(sectionId) REFERENCES sections(id)
+        FOREIGN KEY(sectionId) REFERENCES sections(id),
+        FOREIGN KEY(educationProgramId) REFERENCES educationPrograms(id)
       )
     `)
 
@@ -111,8 +122,8 @@ export const initializeDatabase = () => {
       FOR EACH ROW
       WHEN NEW.accountType = 'student'
       BEGIN
-        INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
-        VALUES (NEW.id, '', '', '${defaultProfileImage}', (SELECT id FROM sections WHERE name = 'default'));
+        INSERT INTO profiles (userId, fullName, description, profileImage, sectionId, educationProgramId)
+        VALUES (NEW.id, '', '', '${defaultProfileImage}', (SELECT id FROM sections WHERE name = 'default'), NULL);
       END;
     `)
   })
