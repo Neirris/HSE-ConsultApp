@@ -13,8 +13,11 @@
             :class="['sidebar__menu-item-container', { 'sidebar__menu-item-container--current': isActive(item), 'sidebar__menu-item-container--expanded': item.isExpanded }]"
             @mouseenter="expandItem(item)" @mouseleave="collapseItem(item)">
             <button class="sidebar__menu-item" :style="menuItemStyle(item)" @click="handleMenuClick(item)">
-                <img v-if="item.icon" :src="item.icon" alt="Menu Icon" class="sidebar__menu-icon"
-                    :class="{ 'admin-icon': accountType === 'admin', 'inverted-icon': accountType !== 'admin' }">
+                <template v-if="item.icon">
+                    <img v-if="isImageIcon(item.icon)" :src="item.icon" alt="Menu Icon" class="sidebar__menu-icon"
+                        :class="{ 'inverted-icon': accountType !== 'admin' }">
+                    <span v-else class="sidebar__menu-icon admin-icon">{{ item.icon }}</span>
+                </template>
                 <span class="sidebar__menu-text">{{ item.text }}</span>
                 <img v-if="item.subMenu" :src="MiniTriangle" class="sidebar__mini-triangle"
                     :class="{ 'sidebar__mini-triangle-rotated': item.isExpanded }">
@@ -42,6 +45,8 @@ import manageIcon from '@/assets/icons/Settings.png';
 import studentsIcon from '@/assets/icons/Person.png';
 import MiniTriangle from '@/assets/icons/MiniTriangle.png';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const router = useRouter();
 const route = useRoute();
 const profileImage = ref('');
@@ -55,7 +60,7 @@ const menuItems = ref([]);
 
 const fetchProfileData = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         profileImage.value = response.data.profileImage;
         userName.value = response.data.fullName;
         accountType.value = response.data.accountType;
@@ -163,12 +168,16 @@ const goToProfile = () => {
 
 const logout = async () => {
     try {
-        await axios.post('http://localhost:3000/logout', {}, { withCredentials: true });
+        await axios.post(`${API_BASE_URL}/logout`, {}, { withCredentials: true });
         document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
         router.push('/auth');
     } catch (error) {
         console.error('Ошибка при выходе из аккаунта:', error);
     }
+};
+
+const isImageIcon = (icon) => {
+    return icon.endsWith('.png') || icon.endsWith('.jpg') || icon.endsWith('.jpeg') || icon.endsWith('.svg');
 };
 </script>
 
@@ -204,6 +213,8 @@ const logout = async () => {
 }
 
 .sidebar__profile-icon {
+    min-width: 35px;
+    min-height: 35px;
     width: 35px;
     height: 35px;
     margin-right: 10px;
@@ -300,16 +311,20 @@ const logout = async () => {
 }
 
 .sidebar__menu-icon {
-    width: 35px;
-    height: 35px;
-    margin-right: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 35px;
+    height: 35px;
+    margin-right: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
 }
 
 .admin-icon {
     background-color: #009688;
+    /* Цвет фона для текстовых иконок администратора */
     color: #fff;
     border-radius: 50%;
     font-size: 14px;
