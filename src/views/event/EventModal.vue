@@ -42,6 +42,8 @@
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const props = defineProps(['newEvent', 'isEdit', 'registrations']);
 const emit = defineEmits(['close', 'save', 'delete', 'refresh']);
 
@@ -165,7 +167,7 @@ const repeatEvent = async (type) => {
   delete newEvent.id;
 
   try {
-    const response = await axios.post('http://localhost:3000/events', newEvent, { withCredentials: true });
+    const response = await axios.post(`${API_BASE_URL}/events`, newEvent, { withCredentials: true });
     console.log('Event duplicated:', response.data);
     emit('refresh');
     emit('close');

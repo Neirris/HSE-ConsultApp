@@ -32,6 +32,8 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const router = useRouter();
 const searchQuery = ref('');
 const users = ref([]);
@@ -40,7 +42,7 @@ const listTitle = ref('');
 
 const fetchUsers = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/users/list', {
+        const response = await axios.get(`${API_BASE_URL}/users/list`, {
             params: { searchQuery: searchQuery.value },
             withCredentials: true
         });
@@ -56,7 +58,7 @@ const searchUsers = () => {
 
 const fetchAccountType = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         accountType.value = response.data.accountType;
         listTitle.value = accountType.value === 'student' ? 'Список преподавателей' : 'Список студентов';
     } catch (error) {

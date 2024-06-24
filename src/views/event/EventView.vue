@@ -48,6 +48,8 @@
 import { ref, watch, onMounted } from 'vue';
 import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const props = defineProps(['event', 'isTeacher']);
 const emit = defineEmits(['close']);
 
@@ -62,7 +64,7 @@ const isOwnEvent = ref(false);
 
 const fetchRegistrations = async (eventId) => {
     try {
-        const response = await axios.get(`http://localhost:3000/events/${eventId}/registrations`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/events/${eventId}/registrations`, { withCredentials: true });
         registrations.value = response.data;
         isRegistered.value = registrations.value.some(student => student.id === currentUserId.value);
         availableSlots.value = props.event.slots - registrations.value.length;
@@ -73,7 +75,7 @@ const fetchRegistrations = async (eventId) => {
 
 const fetchCurrentUserId = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         currentUserId.value = response.data.userId;
         currentUserAccountType.value = response.data.accountType;
         fetchRegistrations(localEvent.value.id);
@@ -85,7 +87,7 @@ const fetchCurrentUserId = async () => {
 
 const fetchTeacherName = async (teacherId) => {
     try {
-        const response = await axios.get(`http://localhost:3000/users/id/${teacherId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/users/id/${teacherId}`, { withCredentials: true });
         teacherName.value = response.data.fullName;
     } catch (error) {
         console.error('Error fetching teacher name:', error);
@@ -111,20 +113,20 @@ const handleOverlayClick = (event) => {
 };
 
 const goToUserProfile = (userId) => {
-    window.open(`http://localhost:5173/users/id/${userId}`, '_blank');
+    window.open(`${API_BASE_URL}/users/id/${userId}`, '_blank');
 };
 
 const handleRegistration = async () => {
     try {
         if (isRegistered.value) {
             // Отписаться
-            await axios.delete(`http://localhost:3000/events/${localEvent.value.id}/registrations/${currentUserId.value}`, { withCredentials: true });
+            await axios.delete(`${API_BASE_URL}/events/${localEvent.value.id}/registrations/${currentUserId.value}`, { withCredentials: true });
             isRegistered.value = false;
             availableSlots.value++;
         } else {
             // Записаться
             if (availableSlots.value > 0) {
-                await axios.post(`http://localhost:3000/events/${localEvent.value.id}/registrations`, { studentId: currentUserId.value }, { withCredentials: true });
+                await axios.post(`${API_BASE_URL}/events/${localEvent.value.id}/registrations`, { studentId: currentUserId.value }, { withCredentials: true });
                 isRegistered.value = true;
                 availableSlots.value--;
             }

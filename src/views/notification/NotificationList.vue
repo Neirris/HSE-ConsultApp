@@ -23,12 +23,14 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const notifications = ref([])
 const router = useRouter()
 
 const fetchNotifications = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/notifications', { withCredentials: true })
+        const response = await axios.get(`${API_BASE_URL}/notifications`, { withCredentials: true })
         notifications.value = response.data
     } catch (error) {
         console.error('Ошибка при получении уведомлений:', error)
@@ -37,7 +39,7 @@ const fetchNotifications = async () => {
 
 const handleClick = async (notification) => {
     try {
-        await axios.post('http://localhost:3000/notifications/read', { notificationId: notification.id }, { withCredentials: true })
+        await axios.post(`${API_BASE_URL}/notifications/read`, { notificationId: notification.id }, { withCredentials: true })
 
         if (notification.message.includes('отправил вам сообщение')) {
             router.push(notification.link)

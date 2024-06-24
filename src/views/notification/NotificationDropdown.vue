@@ -26,13 +26,15 @@ import { useRouter } from 'vue-router'
 import { io } from 'socket.io-client'
 import { useToast, POSITION } from 'vue-toastification'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const notifications = ref([])
 const router = useRouter()
 const toast = useToast()
 
 const fetchNotifications = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/notifications', { withCredentials: true })
+        const response = await axios.get(`${API_BASE_URL}/notifications`, { withCredentials: true })
         notifications.value = response.data.filter(notification => !notification.isRead).slice(0, 5)
     } catch (error) {
         console.error('Ошибка при получении уведомлений:', error)
@@ -41,7 +43,7 @@ const fetchNotifications = async () => {
 
 const handleClick = async (notification) => {
     try {
-        await axios.post('http://localhost:3000/notifications/read', { notificationId: notification.id }, { withCredentials: true })
+        await axios.post(`${API_BASE_URL}/notifications/read`, { notificationId: notification.id }, { withCredentials: true })
 
         if (notification.message.includes('отправил вам сообщение')) {
             const sessionId = notification.link.split('sid=')[1];
@@ -85,7 +87,7 @@ const getIcon = (notification) => {
 onMounted(() => {
     fetchNotifications()
 
-    const socket = io('http://localhost:3000')
+    const socket = io(`${API_BASE_URL}`)
     socket.on('notification', (data) => {
         toast.info(data.message, {
             timeout: 10000,

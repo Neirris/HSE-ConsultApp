@@ -51,6 +51,8 @@ import ruLocale from '@fullcalendar/core/locales/ru';
 import EventModal from '@/views/event/EventModal.vue';
 import EventView from '@/views/event/EventView.vue';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const showModal = ref(false);
 const showEventView = ref(false);
 const isEdit = ref(false);
@@ -87,9 +89,9 @@ const handleDateClick = (info) => {
 
 const handleEventClick = async (info) => {
     try {
-        const response = await axios.get(`http://localhost:3000/events/${info.event.id}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/events/${info.event.id}`, { withCredentials: true });
         newEvent.value = response.data;
-        const registrationResponse = await axios.get(`http://localhost:3000/events/${info.event.id}/registrations`, { withCredentials: true });
+        const registrationResponse = await axios.get(`${API_BASE_URL}/events/${info.event.id}/registrations`, { withCredentials: true });
         registrations.value = registrationResponse.data;
 
         if (currentUserAccountType.value === 'teacher') {
@@ -129,14 +131,14 @@ const handleSaveEvent = async (event) => {
         event.teacherId = currentUserId.value;
 
         if (isEdit.value) {
-            const response = await axios.put(`http://localhost:3000/events/${event.id}`, event, { withCredentials: true });
+            const response = await axios.put(`${API_BASE_URL}/events/${event.id}`, event, { withCredentials: true });
             const index = events.value.findIndex(e => e.id === event.id);
             if (index !== -1) {
                 events.value[index] = response.data;
             }
         } else {
             event.backgroundColor = colors[events.value.length % colors.length];
-            const response = await axios.post('http://localhost:3000/events', event, { withCredentials: true });
+            const response = await axios.post(`${API_BASE_URL}/events`, event, { withCredentials: true });
             events.value.push(response.data);
         }
         calendarOptions.value.events = [...events.value];
@@ -152,7 +154,7 @@ const handleDeleteEvent = async (eventId) => {
     const confirmed = confirm('Вы действительно хотите удалить это событие?');
     if (confirmed) {
         try {
-            await axios.delete(`http://localhost:3000/events/${eventId}`, { withCredentials: true });
+            await axios.delete(`${API_BASE_URL}/events/${eventId}`, { withCredentials: true });
             events.value = events.value.filter(e => e.id !== eventId);
             calendarOptions.value.events = [...events.value];
         } catch (error) {
@@ -166,15 +168,15 @@ const handleDeleteEvent = async (eventId) => {
 
 const fetchEvents = async () => {
     try {
-        const userResponse = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const userResponse = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         currentUserId.value = userResponse.data.userId;
         currentUserAccountType.value = userResponse.data.accountType;
 
         let response;
         if (currentUserAccountType.value === 'teacher') {
-            response = await axios.get(`http://localhost:3000/events?teacherId=${currentUserId.value}`, { withCredentials: true });
+            response = await axios.get(`${API_BASE_URL}/events?teacherId=${currentUserId.value}`, { withCredentials: true });
         } else if (currentUserAccountType.value === 'student') {
-            response = await axios.get(`http://localhost:3000/events?studentId=${currentUserId.value}`, { withCredentials: true });
+            response = await axios.get(`${API_BASE_URL}/events?studentId=${currentUserId.value}`, { withCredentials: true });
         }
 
         events.value = response.data.map((event, index) => {
@@ -193,7 +195,7 @@ const fetchEvents = async () => {
         }).slice(0, 5);
 
         for (const event of upcomingEvents.value) {
-            const registrationResponse = await axios.get(`http://localhost:3000/events/${event.id}/registrations`, { withCredentials: true });
+            const registrationResponse = await axios.get(`${API_BASE_URL}/events/${event.id}/registrations`, { withCredentials: true });
             event.registrations = registrationResponse.data.length;
         }
 

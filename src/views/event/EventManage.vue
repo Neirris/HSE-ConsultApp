@@ -185,6 +185,8 @@ import axios from 'axios';
 import Multiselect from 'vue-multiselect';
 import EventModal from './EventModal.vue';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const searchQuery = ref('');
 const events = ref([]);
 const students = ref([]);
@@ -199,15 +201,15 @@ const isEdit = ref(false);
 
 const fetchEvents = async () => {
     try {
-        const userResponse = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const userResponse = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         const currentUserId = userResponse.data.userId;
         const currentUserAccountType = userResponse.data.accountType;
 
         let response;
         if (currentUserAccountType === 'teacher') {
-            response = await axios.get(`http://localhost:3000/events?teacherId=${currentUserId}`, { withCredentials: true });
+            response = await axios.get(`${API_BASE_URL}/events?teacherId=${currentUserId}`, { withCredentials: true });
         } else if (currentUserAccountType === 'student') {
-            response = await axios.get(`http://localhost:3000/events?studentId=${currentUserId}`, { withCredentials: true });
+            response = await axios.get(`${API_BASE_URL}/events?studentId=${currentUserId}`, { withCredentials: true });
         } else {
             throw new Error('Unsupported user account type');
         }
@@ -222,7 +224,7 @@ const fetchEvents = async () => {
         }));
 
         for (const event of eventData) {
-            const registrationsResponse = await axios.get(`http://localhost:3000/events/${event.id}/registrations`, { withCredentials: true });
+            const registrationsResponse = await axios.get(`${API_BASE_URL}/events/${event.id}/registrations`, { withCredentials: true });
             event.registrations = registrationsResponse.data;
             event.registrationsCount = registrationsResponse.data.length;
         }
@@ -235,7 +237,7 @@ const fetchEvents = async () => {
 
 const fetchStudents = async (eventId) => {
     try {
-        const response = await axios.get(`http://localhost:3000/users/not-registered/${eventId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/users/not-registered/${eventId}`, { withCredentials: true });
         return response.data;
     } catch (error) {
         console.error('Не удалось загрузить данные студентов:', error);
@@ -245,7 +247,7 @@ const fetchStudents = async (eventId) => {
 
 const searchEvents = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/events/search', {
+        const response = await axios.get(`${API_BASE_URL}/events/search`, {
             params: { query: searchQuery.value },
             withCredentials: true
         });
@@ -259,7 +261,7 @@ const searchEvents = async () => {
         }));
 
         for (const event of events.value) {
-            const registrationsResponse = await axios.get(`http://localhost:3000/events/${event.id}/registrations`, { withCredentials: true });
+            const registrationsResponse = await axios.get(`${API_BASE_URL}/events/${event.id}/registrations`, { withCredentials: true });
             event.registrations = registrationsResponse.data;
             event.registrationsCount = registrationsResponse.data.length;
         }
@@ -274,7 +276,7 @@ const toggleEvent = async (eventId) => {
         event.show = !event.show;
         if (event.show && event.registrations.length === 0) {
             try {
-                const response = await axios.get(`http://localhost:3000/events/${eventId}/registrations`, { withCredentials: true });
+                const response = await axios.get(`${API_BASE_URL}/events/${eventId}/registrations`, { withCredentials: true });
                 event.registrations = response.data;
                 event.registrationsCount = response.data.length;
             } catch (error) {
@@ -303,7 +305,7 @@ const addParticipant = async (eventId, studentId) => {
     const event = events.value.find(event => event.id === eventId);
     if (event) {
         try {
-            await axios.post(`http://localhost:3000/events/${eventId}/registrations`, { studentId }, { withCredentials: true });
+            await axios.post(`${API_BASE_URL}/events/${eventId}/registrations`, { studentId }, { withCredentials: true });
             event.registrations.push(students.value.find(student => student.id === studentId));
             event.registrationsCount += 1;
             event.showStudentSearch = false;
@@ -323,7 +325,7 @@ const removeParticipant = async (eventId, participantId) => {
     const event = events.value.find(event => event.id === eventId);
     if (event) {
         try {
-            await axios.delete(`http://localhost:3000/events/${eventId}/registrations/${participantId}`, { withCredentials: true });
+            await axios.delete(`${API_BASE_URL}/events/${eventId}/registrations/${participantId}`, { withCredentials: true });
             event.registrations = event.registrations.filter(participant => participant.id !== participantId);
             event.registrationsCount -= 1;
         } catch (error) {
@@ -333,7 +335,7 @@ const removeParticipant = async (eventId, participantId) => {
 };
 
 const viewProfile = (participantId) => {
-    window.open(`http://localhost:5173/users/id/${participantId}`, '_blank');
+    window.open(`${API_BASE_URL}/users/id/${participantId}`, '_blank');
 };
 
 const openEditModal = (event) => {
@@ -350,7 +352,7 @@ const closeModal = () => {
 
 const saveEvent = async (event) => {
     try {
-        await axios.put(`http://localhost:3000/events/${event.id}`, event, { withCredentials: true });
+        await axios.put(`${API_BASE_URL}/events/${event.id}`, event, { withCredentials: true });
         fetchEvents();
         closeModal();
     } catch (error) {
@@ -360,7 +362,7 @@ const saveEvent = async (event) => {
 
 const deleteEvent = async (eventId) => {
     try {
-        await axios.delete(`http://localhost:3000/events/${eventId}`, { withCredentials: true });
+        await axios.delete(`${API_BASE_URL}/events/${eventId}`, { withCredentials: true });
         fetchEvents();
         closeModal();
     } catch (error) {
