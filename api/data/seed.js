@@ -1,4 +1,4 @@
-import db from './database.js'
+import pool from './database.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -16,117 +16,102 @@ const createPermanentToken = (email, password) => {
   return CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex)
 }
 
-export const seedDatabase = () => {
-  const educationPrograms = [
-    'Программная инженерия',
-    'Бизнес информатика',
-    'Разработка информационных систем'
-  ]
+export const seedDatabase = async () => {
+  const client = await pool.connect()
+  try {
+    const educationPrograms = [
+      'Программная инженерия',
+      'Бизнес информатика',
+      'Разработка информационных систем'
+    ]
 
-  const sections = [
-    { name: 'default', program: null },
-    { name: 'ПИ-21-1', program: 'Программная инженерия' },
-    { name: 'ПИ-21-2', program: 'Программная инженерия' },
-    { name: 'ПИ-21-3', program: 'Программная инженерия' },
-    { name: 'БИ-21-1', program: 'Бизнес информатика' },
-    { name: 'БИ-21-2', program: 'Бизнес информатика' },
-    { name: 'БИ-21-3', program: 'Бизнес информатика' },
-    { name: 'РИС-22-1', program: 'Разработка информационных систем' },
-    { name: 'РИС-22-2', program: 'Разработка информационных систем' },
-    { name: 'РИС-22-3', program: 'Разработка информационных систем' }
-  ]
+    const sections = [
+      { name: 'default', program: null },
+      { name: 'ПИ-21-1', program: 'Программная инженерия' },
+      { name: 'ПИ-21-2', program: 'Программная инженерия' },
+      { name: 'ПИ-21-3', program: 'Программная инженерия' },
+      { name: 'БИ-21-1', program: 'Бизнес информатика' },
+      { name: 'БИ-21-2', program: 'Бизнес информатика' },
+      { name: 'БИ-21-3', program: 'Бизнес информатика' },
+      { name: 'РИС-22-1', program: 'Разработка информационных систем' },
+      { name: 'РИС-22-2', program: 'Разработка информационных систем' },
+      { name: 'РИС-22-3', program: 'Разработка информационных систем' }
+    ]
 
-  const users = [
-    { email: 'admin@mail.ru', password: '123321!!aA', accountType: 'admin', fullName: 'Админ' },
-    {
-      email: 'teacher@mail.ru',
-      password: '123321!!aA',
-      accountType: 'teacher',
-      fullName: 'Учитель'
-    },
-    {
-      email: 'student@mail.ru',
-      password: '123321!!aA',
-      accountType: 'student',
-      fullName: 'Студент'
-    }
-  ]
+    const users = [
+      { email: 'admin@mail.ru', password: '123321!!aA', accountType: 'admin', fullName: 'Админ' },
+      {
+        email: 'teacher@mail.ru',
+        password: '123321!!aA',
+        accountType: 'teacher',
+        fullName: 'Учитель'
+      },
+      {
+        email: 'student@mail.ru',
+        password: '123321!!aA',
+        accountType: 'student',
+        fullName: 'Студент'
+      }
+    ]
 
-  db.serialize(() => {
-    db.run(
+    await client.query('BEGIN')
+
+    await client.query(
       `
-      INSERT OR IGNORE INTO educationPrograms (name)
-      VALUES ${educationPrograms.map(() => '(?)').join(', ')}
+      INSERT INTO educationPrograms (name)
+      VALUES ${educationPrograms.map((_, i) => `($${i + 1})`).join(', ')}
+      ON CONFLICT (name) DO NOTHING
     `,
       educationPrograms
     )
 
-    sections.forEach((section) => {
-      db.run(
+    for (const section of sections) {
+      await client.query(
         `
-        INSERT OR IGNORE INTO sections (name, educationProgramId)
-        VALUES (?, (SELECT id FROM educationPrograms WHERE name = ?))
+        INSERT INTO sections (name, educationProgramId)
+        VALUES ($1, (SELECT id FROM educationPrograms WHERE name = $2))
+        ON CONFLICT (name) DO NOTHING
       `,
         [section.name, section.program]
       )
-    })
+    }
 
-    users.forEach((user) => {
+    for (const user of users) {
       user.hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
       user.token = createPermanentToken(user.email, user.hashedPassword)
-    })
 
-    // выключение триггера
-    db.run(`DROP TRIGGER IF EXISTS set_default_section`)
+      const res = await client.query(
+        `
+        INSERT INTO users (email, password, accountType, token)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id
+      `,
+        [user.email, user.hashedPassword, user.accountType, user.token]
+      )
 
-    db.run(
-      `
-      INSERT OR IGNORE INTO users (email, password, accountType, token)
-      VALUES ${users.map(() => '(?, ?, ?, ?)').join(', ')}
-    `,
-      users.flatMap((user) => [user.email, user.hashedPassword, user.accountType, user.token]),
-      function (err) {
-        if (err) {
-          return console.error(err.message)
-        }
+      if (res.rows.length > 0) {
+        const userId = res.rows[0].id
+        const defaultSectionId = (
+          await client.query(`SELECT id FROM sections WHERE name = 'default'`)
+        ).rows[0].id
 
-        db.get(`SELECT id FROM sections WHERE name = 'default'`, (err, section) => {
-          if (err) {
-            return console.error(err.message)
-          }
-
-          const defaultSectionId = section.id
-
-          const profileValues = users
-            .map((user, index) => [
-              this.lastID - users.length + index + 1, // userId
-              user.fullName,
-              '',
-              defaultProfileImage,
-              defaultSectionId
-            ])
-            .flat()
-
-          db.run(
-            `
-          INSERT OR IGNORE INTO profiles (userId, fullName, description, profileImage, sectionId)
-          VALUES ${users.map(() => '(?, ?, ?, ?, ?)').join(', ')}
+        await client.query(
+          `
+          INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (userId) DO NOTHING
         `,
-            profileValues
-          )
-        })
+          [userId, user.fullName, '', defaultProfileImage, defaultSectionId]
+        )
       }
-    )
+    }
 
-    db.run(`
-      CREATE TRIGGER IF NOT EXISTS set_default_section
-      AFTER INSERT ON users
-      FOR EACH ROW
-      WHEN NEW.accountType = 'student'
-      BEGIN
-        INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
-        VALUES (NEW.id, '', '', '${defaultProfileImage}', (SELECT id FROM sections WHERE name = 'default'));
-      END;
-    `)
-  })
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
 }

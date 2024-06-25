@@ -46,5 +46,15 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "DATABASE_URL": "@postgres://default:j3zDABPQJhF1@ep-soft-breeze-a4f4kco8.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
+    }
+  },
+  "hooks": {
+    "build": {
+      "beforeBuild": "npm run initialize-db && npm run seed-db"
+    }
+  }
 }
