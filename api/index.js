@@ -24,12 +24,16 @@ app.use(cors({ origin: process.env.API_BASE_URL, credentials: true }))
 initializeDatabase()
 seedDatabase()
 
-app.use('/api/auth', authRouter)
-app.use('/api/profile', profileRouter)
-app.use('/api/users', usersRouter)
-app.use('/api/chats', chatsRouter)
-app.use('/api/events', eventsRouter)
-app.use('/api/notifications', notificationsRouter)
-app.use('/api/admin', adminRouter)
+app.use('/auth', authRouter)
+app.use('/profile', profileRouter)
+app.use('/users', usersRouter)
+app.use('/chats', chatsRouter)
+app.use('/events', eventsRouter)
+app.use('/notifications', notificationsRouter)
+app.use('/admin', adminRouter)
+
+app.get('/', (req, res) => {
+  res.redirect('/auth')
+})
 
 export default app

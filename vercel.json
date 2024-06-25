@@ -4,11 +4,46 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "src/main.js",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/auth(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/profile(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/users(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/chats(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/events(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/notifications(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/admin(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/(.*)",
       "dest": "/api/index.js"
     }
   ]
