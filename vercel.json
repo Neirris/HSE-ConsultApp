@@ -15,7 +15,31 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/auth/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/profile/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/users/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/chats/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/events/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/notifications/(.*)",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/admin/(.*)",
       "destination": "/api/index.mjs"
     },
     {

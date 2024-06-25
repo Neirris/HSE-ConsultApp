@@ -10,7 +10,7 @@ export const checkAuth = async () => {
   isCheckingAuth = true
 
   try {
-    const response = await axios.get('/api/auth/check-auth', {
+    const response = await axios.get('/auth/check-auth', {
       withCredentials: true
     })
     const { accountType, userId } = response.data
