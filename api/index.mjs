@@ -16,6 +16,9 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
+console.log('Current directory:', __dirname)
+console.log('Expected database.js path:', path.resolve(__dirname, './data/database.js'))
+
 const app = express()
 
 app.use(bodyParser.json({ limit: '25mb' }))
@@ -27,7 +30,6 @@ app.use((req, res, next) => {
   console.log(`Received request: ${req.method} ${req.url}`)
   next()
 })
-
 ;(async () => {
   try {
     await initializeDatabase()
