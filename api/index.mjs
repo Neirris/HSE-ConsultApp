@@ -2,15 +2,15 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
-import { initializeDatabase } from './data/database.js'
-import { seedDatabase } from './data/seed.js'
-import authRouter from './routes/auth.js'
-import profileRouter from './routes/profile.js'
-import usersRouter from './routes/users.js'
-import chatsRouter from './routes/chats.js'
-import eventsRouter from './routes/events.js'
-import notificationsRouter from './routes/notifications.js'
-import adminRouter from './routes/admin.js'
+import { initializeDatabase } from './data/database.mjs'
+import { seedDatabase } from './data/seed.mjs'
+import authRouter from './routes/auth.mjs'
+import profileRouter from './routes/profile.mjs'
+import usersRouter from './routes/users.mjs'
+import chatsRouter from './routes/chats.mjs'
+import eventsRouter from './routes/events.mjs'
+import notificationsRouter from './routes/notifications.mjs'
+import adminRouter from './routes/admin.mjs'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -37,5 +37,5 @@ app.use('/admin', adminRouter)
 app.get('/', (req, res) => {
   res.redirect('/auth')
 })
-#try
+
 export default app
