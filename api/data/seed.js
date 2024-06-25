@@ -1,4 +1,5 @@
-import pool from './config.js'
+/* eslint-disable no-useless-escape */
+import pool from './database.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const defaultProfileImagePath = path.join(__dirname, '../assets/icons/DefaultPFP.png')
+const defaultProfileImagePath = path.join(__dirname, 'assets', 'icons', 'DefaultPFP.png')
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
 
 const createPermanentToken = (email, password) => {
@@ -17,7 +18,6 @@ const createPermanentToken = (email, password) => {
 }
 
 export const seedDatabase = async () => {
-  const client = await pool.connect()
   const educationPrograms = [
     'Программная инженерия',
     'Бизнес информатика',
@@ -53,14 +53,15 @@ export const seedDatabase = async () => {
     }
   ]
 
+  const client = await pool.connect()
   try {
     await client.query('BEGIN')
 
     await client.query(
       `
-      INSERT INTO educationPrograms (name)
-      VALUES ${educationPrograms.map((_, i) => `($${i + 1})`).join(', ')}
-      ON CONFLICT (name) DO NOTHING
+      INSERT INTO educationPrograms (name) VALUES
+      ${educationPrograms.map((_, index) => `($${index + 1})`).join(', ')}
+      ON CONFLICT DO NOTHING
     `,
       educationPrograms
     )
@@ -70,41 +71,48 @@ export const seedDatabase = async () => {
         `
         INSERT INTO sections (name, educationProgramId)
         VALUES (\$1, (SELECT id FROM educationPrograms WHERE name = \$2))
-        ON CONFLICT (name) DO NOTHING
+        ON CONFLICT DO NOTHING
       `,
         [section.name, section.program]
       )
     }
 
     for (const user of users) {
-      user.hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
-      user.token = createPermanentToken(user.email, user.hashedPassword)
+      const hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
+      const token = createPermanentToken(user.email, hashedPassword)
 
-      const res = await client.query(
+      await client.query(
         `
         INSERT INTO users (email, password, accountType, token)
         VALUES (\$1, \$2, \$3, \$4)
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id
+        ON CONFLICT DO NOTHING
       `,
-        [user.email, user.hashedPassword, user.accountType, user.token]
+        [user.email, hashedPassword, user.accountType, token]
       )
 
-      if (res.rows.length > 0) {
-        const userId = res.rows[0].id
-        const defaultSectionId = (
-          await client.query(`SELECT id FROM sections WHERE name = 'default'`)
-        ).rows[0].id
+      const res = await client.query(
+        `
+        SELECT id FROM users WHERE email = \$1
+      `,
+        [user.email]
+      )
 
-        await client.query(
-          `
-          INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
-          VALUES (\$1, \$2, \$3, \$4, \$5)
-          ON CONFLICT (userId) DO NOTHING
-        `,
-          [userId, user.fullName, '', defaultProfileImage, defaultSectionId]
-        )
-      }
+      const userId = res.rows[0].id
+
+      const sectionRes = await client.query(`
+        SELECT id FROM sections WHERE name = 'default'
+      `)
+
+      const defaultSectionId = sectionRes.rows[0].id
+
+      await client.query(
+        `
+        INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
+        VALUES (\$1, \$2, \$3, \$4, \$5)
+        ON CONFLICT DO NOTHING
+      `,
+        [userId, user.fullName, '', defaultProfileImage, defaultSectionId]
+      )
     }
 
     await client.query('COMMIT')

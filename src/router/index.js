@@ -28,13 +28,16 @@ const routes = [
     component: AuthView,
     beforeEnter: async (to, from, next) => {
       const user = await checkAuth()
+      console.log(user)
       if (user) {
-        if (user.accountType === 'admin') {
+        if (user.accountType === 'admin' && to.path !== '/admin') {
           next('/admin')
-        } else if (user.accountType === 'teacher') {
+        } else if (user.accountType === 'teacher' && to.path !== '/teacher') {
           next('/teacher')
-        } else if (user.accountType === 'student') {
+        } else if (user.accountType === 'student' && to.path !== '/student') {
           next('/student')
+        } else {
+          next()
         }
       } else {
         next()

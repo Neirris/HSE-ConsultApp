@@ -2,7 +2,7 @@
     <div :class="['sidebar', { expanded: isSidebarExpanded }]" @mouseenter="expandSidebar"
         @mouseleave="collapseSidebar">
         <div class="sidebar__profile" v-if="profileImage && userName" @click="toggleProfileMenu">
-            <img :src="`data:image/png;base64,${profileImage}`" alt="Profile" class="sidebar__profile-icon">
+            <img :src="`data:image/png;base64,${profileImage}`" alt="Profile" class="sidebar__profile-icon" />
             <span class="sidebar__menu-text">{{ firstName }}</span>
         </div>
         <div v-if="isProfileMenuVisible && isSidebarExpanded" class="profile-menu">
@@ -15,12 +15,12 @@
             <button class="sidebar__menu-item" :style="menuItemStyle(item)" @click="handleMenuClick(item)">
                 <template v-if="item.icon">
                     <img v-if="isImageIcon(item.icon)" :src="item.icon" alt="Menu Icon" class="sidebar__menu-icon"
-                        :class="{ 'inverted-icon': accountType !== 'admin' }">
+                        :class="{ 'inverted-icon': accountType !== 'admin' }" />
                     <span v-else class="sidebar__menu-icon admin-icon">{{ item.icon }}</span>
                 </template>
                 <span class="sidebar__menu-text">{{ item.text }}</span>
                 <img v-if="item.subMenu" :src="MiniTriangle" class="sidebar__mini-triangle"
-                    :class="{ 'sidebar__mini-triangle-rotated': item.isExpanded }">
+                    :class="{ 'sidebar__mini-triangle-rotated': item.isExpanded }" />
             </button>
             <div v-if="item.isExpanded && item.subMenu" class="sidebar__sub-menu">
                 <button v-for="subItem in item.subMenu" :key="subItem.text" class="sidebar__sub-menu-item"
@@ -208,7 +208,7 @@ const isImageIcon = (icon) => {
     font-weight: bold;
     color: #ffffe4;
     border-bottom: 2px solid dimgray;
-    background-color: #11625D;
+    background-color: #11625d;
     cursor: pointer;
 }
 
@@ -324,7 +324,6 @@ const isImageIcon = (icon) => {
 
 .admin-icon {
     background-color: #009688;
-    /* Цвет фона для текстовых иконок администратора */
     color: #fff;
     border-radius: 50%;
     font-size: 14px;

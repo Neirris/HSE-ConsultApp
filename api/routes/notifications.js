@@ -1,65 +1,65 @@
+/* eslint-disable no-useless-escape */
 import express from 'express'
-import db from '../data/database.js'
+import pool from '../data/database.js'
 
 const notificationsRouter = express.Router()
 
-notificationsRouter.get('/notifications', (req, res) => {
+notificationsRouter.get('/notifications', async (req, res) => {
   const token = req.cookies.token
 
   if (!token) {
     return res.status(401).json({ error: 'Не авторизован' })
   }
 
-  db.get(`SELECT id FROM users WHERE token = ?`, [token], (err, user) => {
-    if (err) {
-      console.error('Ошибка при получении пользователя:', err.message)
-      return res.status(500).json({ error: err.message })
-    }
+  const client = await pool.connect()
+  try {
+    const userResult = await client.query(`SELECT id FROM users WHERE token = \$1`, [token])
+    const user = userResult.rows[0]
     if (!user) {
       return res.status(401).json({ error: 'Не авторизован' })
     }
 
     const userId = user.id
-
-    db.all(
-      `SELECT * FROM notifications WHERE userId = ? ORDER BY timestamp DESC`,
-      [userId],
-      (err, rows) => {
-        if (err) {
-          console.error('Ошибка при получении уведомлений:', err.message)
-          return res.status(500).json({ error: err.message })
-        }
-        res.json(rows)
-      }
+    const notificationsResult = await client.query(
+      `SELECT * FROM notifications WHERE userId = \$1 ORDER BY timestamp DESC`,
+      [userId]
     )
-  })
+    res.json(notificationsResult.rows)
+  } catch (err) {
+    console.error('Ошибка при получении уведомлений:', err.message)
+    res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
+  }
 })
 
-notificationsRouter.post('/notifications/read', (req, res) => {
+notificationsRouter.post('/notifications/read', async (req, res) => {
   const { notificationId } = req.body
 
-  db.run(`UPDATE notifications SET isRead = 1 WHERE id = ?`, [notificationId], function (err) {
-    if (err) {
-      console.error('Ошибка при обновлении уведомления:', err.message)
-      return res.status(500).json({ error: err.message })
-    }
+  const client = await pool.connect()
+  try {
+    await client.query(`UPDATE notifications SET isRead = true WHERE id = \$1`, [notificationId])
     res.json({ success: true })
-  })
+  } catch (err) {
+    console.error('Ошибка при обновлении уведомления:', err.message)
+    res.status(500).json({ error: err.message })
+  } finally {
+    client.release()
+  }
 })
 
-const createNotification = (userId, message, link, senderId) => {
-  db.run(
-    `INSERT INTO notifications (userId, message, link, senderId) VALUES (?, ?, ?, ?)`,
-    [userId, message, link, senderId],
-    function (err) {
-      if (err) {
-        console.error('Не удалось сохранить уведомление:', err.message)
-      }
-    }
-  )
+const createNotification = async (userId, message, link, senderId) => {
+  const client = await pool.connect()
+  try {
+    await client.query(
+      `INSERT INTO notifications (userId, message, link, senderId) VALUES (\$1, \$2, \$3, \$4)`,
+      [userId, message, link, senderId]
+    )
+  } catch (err) {
+    console.error('Не удалось сохранить уведомление:', err.message)
+  } finally {
+    client.release()
+  }
 }
 
-export default {
-  notificationsRouter,
-  createNotification
-}
+export { notificationsRouter, createNotification }

@@ -1,4 +1,5 @@
-import db from './database.js'
+/* eslint-disable no-useless-escape */
+import pool from './database.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -16,7 +17,7 @@ const createPermanentToken = (email, password) => {
   return CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex)
 }
 
-export const seedDatabase = () => {
+export const seedDatabase = async () => {
   const educationPrograms = [
     'Программная инженерия',
     'Бизнес информатика',
@@ -52,81 +53,73 @@ export const seedDatabase = () => {
     }
   ]
 
-  db.serialize(() => {
-    db.run(
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    await client.query(
       `
-      INSERT OR IGNORE INTO educationPrograms (name)
-      VALUES ${educationPrograms.map(() => '(?)').join(', ')}
+      INSERT INTO educationPrograms (name) VALUES
+      ${educationPrograms.map((_, index) => `($${index + 1})`).join(', ')}
+      ON CONFLICT DO NOTHING
     `,
       educationPrograms
     )
 
-    sections.forEach((section) => {
-      db.run(
+    for (const section of sections) {
+      await client.query(
         `
-        INSERT OR IGNORE INTO sections (name, educationProgramId)
-        VALUES (?, (SELECT id FROM educationPrograms WHERE name = ?))
+        INSERT INTO sections (name, educationProgramId)
+        VALUES (\$1, (SELECT id FROM educationPrograms WHERE name = \$2))
+        ON CONFLICT DO NOTHING
       `,
         [section.name, section.program]
       )
-    })
+    }
 
-    users.forEach((user) => {
-      user.hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
-      user.token = createPermanentToken(user.email, user.hashedPassword)
-    })
+    for (const user of users) {
+      const hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
+      const token = createPermanentToken(user.email, hashedPassword)
 
-    // выключение триггера
-    db.run(`DROP TRIGGER IF EXISTS set_default_section`)
+      await client.query(
+        `
+        INSERT INTO users (email, password, accountType, token)
+        VALUES (\$1, \$2, \$3, \$4)
+        ON CONFLICT DO NOTHING
+      `,
+        [user.email, hashedPassword, user.accountType, token]
+      )
 
-    db.run(
-      `
-      INSERT OR IGNORE INTO users (email, password, accountType, token)
-      VALUES ${users.map(() => '(?, ?, ?, ?)').join(', ')}
-    `,
-      users.flatMap((user) => [user.email, user.hashedPassword, user.accountType, user.token]),
-      function (err) {
-        if (err) {
-          return console.error(err.message)
-        }
+      const res = await client.query(
+        `
+        SELECT id FROM users WHERE email = \$1
+      `,
+        [user.email]
+      )
 
-        db.get(`SELECT id FROM sections WHERE name = 'default'`, (err, section) => {
-          if (err) {
-            return console.error(err.message)
-          }
+      const userId = res.rows[0].id
 
-          const defaultSectionId = section.id
+      const sectionRes = await client.query(`
+        SELECT id FROM sections WHERE name = 'default'
+      `)
 
-          const profileValues = users
-            .map((user, index) => [
-              this.lastID - users.length + index + 1, // userId
-              user.fullName,
-              '',
-              defaultProfileImage,
-              defaultSectionId
-            ])
-            .flat()
+      const defaultSectionId = sectionRes.rows[0].id
 
-          db.run(
-            `
-          INSERT OR IGNORE INTO profiles (userId, fullName, description, profileImage, sectionId)
-          VALUES ${users.map(() => '(?, ?, ?, ?, ?)').join(', ')}
-        `,
-            profileValues
-          )
-        })
-      }
-    )
-
-    db.run(`
-      CREATE TRIGGER IF NOT EXISTS set_default_section
-      AFTER INSERT ON users
-      FOR EACH ROW
-      WHEN NEW.accountType = 'student'
-      BEGIN
+      await client.query(
+        `
         INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
-        VALUES (NEW.id, '', '', '${defaultProfileImage}', (SELECT id FROM sections WHERE name = 'default'));
-      END;
-    `)
-  })
+        VALUES (\$1, \$2, \$3, \$4, \$5)
+        ON CONFLICT DO NOTHING
+      `,
+        [userId, user.fullName, '', defaultProfileImage, defaultSectionId]
+      )
+    }
+
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
 }

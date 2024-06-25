@@ -1,39 +1,44 @@
+/* eslint-disable no-useless-escape */
 import express from 'express'
-import db from '../data/database.js'
+import pool from '../data/database.js'
 
 const profileRouter = express.Router()
 
-profileRouter.get('/profile-data', (req, res) => {
+profileRouter.get('/profile-data', async (req, res) => {
   const token = req.cookies.token
 
   if (!token) {
     return res.status(401).json({ error: 'Не авторизован' })
   }
 
-  db.get(
+  const client = await pool.connect()
+  try {
+    const findUserQuery = `
+      SELECT users.id, users.email, users.accountType, profiles.fullName, profiles.profileImage
+      FROM users
+      LEFT JOIN profiles ON users.id = profiles.userId
+      WHERE users.token = \$1
     `
-    SELECT u.id, u.accountType, p.fullName, p.profileImage
-    FROM users u
-    JOIN profiles p ON u.id = p.userId
-    WHERE u.token = ?
-  `,
-    [token],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message })
-      }
-      if (row) {
-        res.json({
-          userId: row.id,
-          accountType: row.accountType,
-          fullName: row.fullName,
-          profileImage: row.profileImage
-        })
-      } else {
-        res.status(404).json({ error: 'Пользователь не найден' })
-      }
+    const findUserValues = [token]
+
+    const result = await client.query(findUserQuery, findUserValues)
+    const user = result.rows[0]
+    if (!user) {
+      return res.status(401).json({ error: 'Не авторизован' })
     }
-  )
+
+    res.status(200).json({
+      userId: user.id,
+      fullName: user.fullname,
+      profileImage: user.profileimage,
+      accountType: user.accounttype
+    })
+  } catch (err) {
+    console.error('Ошибка сервера:', err)
+    res.status(500).json({ error: 'Ошибка сервера' })
+  } finally {
+    client.release()
+  }
 })
 
 export default profileRouter

@@ -1,5 +1,6 @@
+/* eslint-disable no-useless-escape */
 import express from 'express'
-import db from '../data/database.js'
+import pool from '../data/database.js'
 import CryptoJS from 'crypto-js'
 
 const authRouter = express.Router()
@@ -11,85 +12,113 @@ const createPermanentToken = (email, password) => {
   return permanentToken
 }
 
-authRouter.post('/register', (req, res) => {
+authRouter.post('/register', async (req, res) => {
   const { email, password, fullName } = req.body
   const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
   const permanentToken = createPermanentToken(email, hashedPassword)
 
-  db.run(
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const insertUserQuery = `
+      INSERT INTO users (email, password, accountType, token)
+      VALUES (\$1, \$2, 'student', \$3)
+      RETURNING id
     `
-    INSERT INTO users (email, password, accountType, token)
-    VALUES (?, ?, 'student', ?)
-  `,
-    [email, hashedPassword, permanentToken],
-    function (err) {
-      if (err) {
-        return res.status(400).json({ error: 'Пользователь уже существует' })
-      }
-      const userId = this.lastID
+    const insertUserValues = [email, hashedPassword, permanentToken]
 
-      db.run(
-        `
+    const result = await client.query(insertUserQuery, insertUserValues)
+    const userId = result.rows[0].id
+
+    const updateProfileQuery = `
       UPDATE profiles
-      SET fullName = ?
-      WHERE userId = ?
-    `,
-        [fullName, userId]
-      )
+      SET fullName = \$1
+      WHERE userId = \$2
+    `
+    const updateProfileValues = [fullName, userId]
 
-      res.cookie('token', permanentToken, { httpOnly: true })
+    await client.query(updateProfileQuery, updateProfileValues)
+    await client.query('COMMIT')
 
-      res.status(200).json({ message: 'Регистрация выполнена', accountType: 'student' })
+    res.cookie('token', permanentToken, { httpOnly: true })
+    res.status(200).json({ message: 'Регистрация выполнена', accountType: 'student' })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    if (err.code === '23505') {
+      // unique_violation
+      res.status(400).json({ error: 'Пользователь уже существует' })
+    } else {
+      res.status(500).json({ error: 'Ошибка сервера' })
     }
-  )
+  } finally {
+    client.release()
+  }
 })
 
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body
 
-  db.get(
+  const client = await pool.connect()
+  try {
+    const findUserQuery = `
+      SELECT * FROM users WHERE email = \$1
     `
-    SELECT * FROM users WHERE email = ?
-  `,
-    [email],
-    (err, user) => {
-      if (err || !user) {
-        return res.status(400).json({ error: 'Пользователь не найден' })
-      }
-      const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
-      if (hashedPassword !== user.password) {
-        return res.status(400).json({ error: 'Неправильный пароль' })
-      }
+    const findUserValues = [email]
 
-      const permanentToken = user.token
+    const result = await client.query(findUserQuery, findUserValues)
+    const user = result.rows[0]
 
-      res.cookie('token', permanentToken, { httpOnly: true })
-
-      res.status(200).json({ message: 'Вход выполнен', accountType: user.accountType })
+    if (!user) {
+      return res.status(400).json({ error: 'Пользователь не найден' })
     }
-  )
+
+    const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
+    if (hashedPassword !== user.password) {
+      return res.status(400).json({ error: 'Неправильный пароль' })
+    }
+
+    const permanentToken = user.token
+
+    res.cookie('token', permanentToken, { httpOnly: true })
+    res.status(200).json({ message: 'Вход выполнен', accountType: user.accountType })
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  } finally {
+    client.release()
+  }
 })
 
-authRouter.get('/check-auth', (req, res) => {
+authRouter.get('/check-auth', async (req, res) => {
   const token = req.cookies.token
 
   if (!token) {
     return res.status(401).json({ error: 'Не авторизован' })
   }
 
-  db.get(
+  const client = await pool.connect()
+  try {
+    const findUserQuery = `
+      SELECT id, email, password, accounttype AS "accountType", token
+      FROM users
+      WHERE token = \$1
     `
-    SELECT * FROM users WHERE token = ?
-  `,
-    [token],
-    (err, user) => {
-      if (err || !user) {
-        return res.status(401).json({ error: 'Не авторизован' })
-      }
+    const findUserValues = [token]
 
-      res.status(200).json({ userId: user.id, accountType: user.accountType })
+    const result = await client.query(findUserQuery, findUserValues)
+    const user = result.rows[0]
+
+    if (!user) {
+      return res.status(401).json({ error: 'Не авторизован' })
     }
-  )
+
+    res.status(200).json({ userId: user.id, accountType: user.accountType })
+  } catch (err) {
+    console.error('Ошибка сервера:', err)
+    res.status(500).json({ error: 'Ошибка сервера' })
+  } finally {
+    client.release()
+  }
 })
 
 authRouter.post('/logout', (req, res) => {
