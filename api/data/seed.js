@@ -1,4 +1,4 @@
-import sql from './config.js'
+import client from './config.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -53,7 +53,9 @@ export const seedDatabase = async () => {
   ]
 
   try {
-    await sql.begin(async (sql) => {
+    await client.connect()
+
+    await client.sql.begin(async (sql) => {
       await sql`
         INSERT INTO educationPrograms (name)
         VALUES ${sql(educationPrograms.map((name) => [name]))}
@@ -95,5 +97,7 @@ export const seedDatabase = async () => {
     })
   } catch (error) {
     console.error('Error seeding database:', error)
+  } finally {
+    await client.end()
   }
 }

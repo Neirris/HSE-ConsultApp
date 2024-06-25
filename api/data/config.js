@@ -1,6 +1,10 @@
-import { sql } from '@vercel/postgres'
+import { createClient } from '@vercel/postgres'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-export default sql
+const client = createClient({
+  connectionString: process.env.POSTGRES_URL
+})
+
+export default client
