@@ -1,4 +1,4 @@
-import client from './config.js'
+import pool from './config.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -17,6 +17,7 @@ const createPermanentToken = (email, password) => {
 }
 
 export const seedDatabase = async () => {
+  const client = await pool.connect()
   const educationPrograms = [
     'Программная инженерия',
     'Бизнес информатика',
@@ -53,51 +54,64 @@ export const seedDatabase = async () => {
   ]
 
   try {
-    await client.connect()
+    await client.query('BEGIN')
 
-    await client.sql.begin(async (sql) => {
-      await sql`
-        INSERT INTO educationPrograms (name)
-        VALUES ${sql(educationPrograms.map((name) => [name]))}
-        ON CONFLICT (name) DO NOTHING
+    await client.query(
       `
+      INSERT INTO educationPrograms (name)
+      VALUES ${educationPrograms.map((_, i) => `($${i + 1})`).join(', ')}
+      ON CONFLICT (name) DO NOTHING
+    `,
+      educationPrograms
+    )
 
-      for (const section of sections) {
-        await sql`
-          INSERT INTO sections (name, educationProgramId)
-          VALUES (${section.name}, (SELECT id FROM educationPrograms WHERE name = ${section.program}))
-          ON CONFLICT (name) DO NOTHING
+    for (const section of sections) {
+      await client.query(
         `
-      }
+        INSERT INTO sections (name, educationProgramId)
+        VALUES (\$1, (SELECT id FROM educationPrograms WHERE name = \$2))
+        ON CONFLICT (name) DO NOTHING
+      `,
+        [section.name, section.program]
+      )
+    }
 
-      for (const user of users) {
-        user.hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
-        user.token = createPermanentToken(user.email, user.hashedPassword)
+    for (const user of users) {
+      user.hashedPassword = CryptoJS.SHA256(user.password).toString(CryptoJS.enc.Hex)
+      user.token = createPermanentToken(user.email, user.hashedPassword)
 
-        const res = await sql`
-          INSERT INTO users (email, password, accountType, token)
-          VALUES (${user.email}, ${user.hashedPassword}, ${user.accountType}, ${user.token})
-          ON CONFLICT (email) DO NOTHING
-          RETURNING id
+      const res = await client.query(
         `
+        INSERT INTO users (email, password, accountType, token)
+        VALUES (\$1, \$2, \$3, \$4)
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id
+      `,
+        [user.email, user.hashedPassword, user.accountType, user.token]
+      )
 
-        if (res.count > 0) {
-          const userId = res[0].id
-          const defaultSectionId = await sql`
-            SELECT id FROM sections WHERE name = 'default'
-          `
+      if (res.rows.length > 0) {
+        const userId = res.rows[0].id
+        const defaultSectionId = (
+          await client.query(`SELECT id FROM sections WHERE name = 'default'`)
+        ).rows[0].id
 
-          await sql`
-            INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
-            VALUES (${userId}, ${user.fullName}, '', ${defaultProfileImage}, ${defaultSectionId[0].id})
-            ON CONFLICT (userId) DO NOTHING
+        await client.query(
           `
-        }
+          INSERT INTO profiles (userId, fullName, description, profileImage, sectionId)
+          VALUES (\$1, \$2, \$3, \$4, \$5)
+          ON CONFLICT (userId) DO NOTHING
+        `,
+          [userId, user.fullName, '', defaultProfileImage, defaultSectionId]
+        )
       }
-    })
-  } catch (error) {
-    console.error('Error seeding database:', error)
+    }
+
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
   } finally {
-    await client.end()
+    client.release()
   }
 }

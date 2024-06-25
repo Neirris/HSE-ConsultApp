@@ -1,4 +1,4 @@
-import client from './config.js'
+import pool from './config.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -10,10 +10,9 @@ const defaultProfileImagePath = path.resolve(__dirname, '../assets/icons/Default
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
 
 export const initializeDatabase = async () => {
+  const client = await pool.connect()
   try {
-    await client.connect()
-
-    await client.sql`
+    await client.query(`
       DROP TABLE IF EXISTS consultationRegistrations;
       DROP TABLE IF EXISTS consultations;
       DROP TABLE IF EXISTS profiles;
@@ -23,9 +22,9 @@ export const initializeDatabase = async () => {
       DROP TABLE IF EXISTS chatMessages;
       DROP TABLE IF EXISTS chatSessions;
       DROP TABLE IF EXISTS users;
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email TEXT UNIQUE,
@@ -33,24 +32,24 @@ export const initializeDatabase = async () => {
         accountType TEXT,
         token TEXT
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS sections (
         id SERIAL PRIMARY KEY,
         name TEXT UNIQUE,
         educationProgramId INTEGER REFERENCES educationPrograms(id)
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS educationPrograms (
         id SERIAL PRIMARY KEY,
         name TEXT UNIQUE
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS profiles (
         id SERIAL PRIMARY KEY,
         userId INTEGER REFERENCES users(id),
@@ -61,9 +60,9 @@ export const initializeDatabase = async () => {
         educationProgramId INTEGER REFERENCES educationPrograms(id),
         mainContact TEXT
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS consultations (
         id SERIAL PRIMARY KEY,
         teacherId INTEGER REFERENCES users(id),
@@ -73,25 +72,25 @@ export const initializeDatabase = async () => {
         start TIMESTAMP,
         end TIMESTAMP
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS consultationRegistrations (
         id SERIAL PRIMARY KEY,
         consultationId INTEGER REFERENCES consultations(id),
         studentId INTEGER REFERENCES users(id)
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS chatSessions (
         id SERIAL PRIMARY KEY,
         user1Id INTEGER REFERENCES users(id),
         user2Id INTEGER REFERENCES users(id)
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS chatMessages (
         id SERIAL PRIMARY KEY,
         sessionId INTEGER REFERENCES chatSessions(id),
@@ -100,9 +99,9 @@ export const initializeDatabase = async () => {
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         isRead BOOLEAN DEFAULT FALSE
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS notifications (
         id SERIAL PRIMARY KEY,
         userId INTEGER REFERENCES users(id),
@@ -112,9 +111,9 @@ export const initializeDatabase = async () => {
         isRead BOOLEAN DEFAULT FALSE,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `
+    `)
 
-    await client.sql`
+    await client.query(`
       CREATE OR REPLACE FUNCTION set_default_section()
       RETURNS TRIGGER AS $$
       BEGIN
@@ -130,12 +129,12 @@ export const initializeDatabase = async () => {
       AFTER INSERT ON users
       FOR EACH ROW
       EXECUTE FUNCTION set_default_section();
-    `
+    `)
   } catch (error) {
     console.error('Error initializing database:', error)
   } finally {
-    await client.end()
+    client.release()
   }
 }
 
-export default client
+export default pool
