@@ -1,4 +1,5 @@
-import pool from './database.js'
+// api/data/seed.js
+import pool from './config.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'
 import path from 'path'
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const defaultProfileImagePath = path.join(__dirname, 'assets', 'icons', 'DefaultPFP.png')
+const defaultProfileImagePath = path.join(__dirname, '../assets/icons/DefaultPFP.png')
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
 
 const createPermanentToken = (email, password) => {

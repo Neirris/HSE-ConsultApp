@@ -1,23 +1,13 @@
-import { Pool } from 'pg'
-import { fileURLToPath } from 'url'
-import path from 'path'
+import pool from './config.js'
 import fs from 'fs'
-import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const defaultProfileImagePath = path.resolve(__dirname, '../assets/icons/DefaultPFP.png')
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
-
-dotenv.config()
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-})
 
 export const initializeDatabase = async () => {
   const client = await pool.connect()
