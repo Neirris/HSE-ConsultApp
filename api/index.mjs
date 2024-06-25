@@ -3,8 +3,8 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
-import { initializeDatabase } from './data/database.js'
-import { seedDatabase } from './data/seed.js'
+import { initializeDatabase } from './database.js'
+import { seedDatabase } from './seed.js'
 import authRouter from './routes/auth.js'
 import profileRouter from './routes/profile.js'
 import usersRouter from './routes/users.js'
@@ -15,9 +15,6 @@ import adminRouter from './routes/admin.js'
 import dotenv from 'dotenv'
 
 dotenv.config()
-
-console.log('Current directory:', __dirname)
-console.log('Expected database.js path:', path.resolve(__dirname, './data/database.js'))
 
 const app = express()
 
