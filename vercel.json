@@ -48,6 +48,6 @@
     }
   ],
   "env": {
-    "DATABASE_URL": "postgres://default:j3zDABPQJhF1@ep-soft-breeze-a4f4kco8.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
+    "POSTGRES_URL": "postgres://default:j3zDABPQJhF1@ep-soft-breeze-a4f4kco8.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
   }
 }

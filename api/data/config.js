@@ -1,12 +1,10 @@
-import pkg from 'pg'
+import { Pool } from '@vercel/postgres'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-const { Pool } = pkg
-
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.POSTGRES_URL,
   ssl: {
     rejectUnauthorized: false
   }

@@ -1,4 +1,3 @@
-// api/data/seed.js
 import pool from './config.js'
 import CryptoJS from 'crypto-js'
 import fs from 'fs'

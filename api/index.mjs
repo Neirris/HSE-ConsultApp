@@ -12,6 +12,7 @@ import eventsRouter from './routes/events.js'
 import notificationsRouter from './routes/notifications.js'
 import adminRouter from './routes/admin.js'
 import dotenv from 'dotenv'
+import pool from './data/config.js'
 
 dotenv.config()
 
@@ -22,9 +23,23 @@ app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }))
 app.use(cookieParser())
 app.use(cors({ origin: process.env.API_BASE_URL, credentials: true }))
 
+const testDatabaseConnection = async () => {
+  const client = await pool.connect()
+  try {
+    const res = await client.query('SELECT NOW()')
+    console.log('Database connected:', res.rows[0])
+  } catch (err) {
+    console.error('Error connecting to the database:', err)
+  } finally {
+    client.release()
+  }
+}
+
 initializeDatabase().then(() => {
   seedDatabase()
 })
+
+testDatabaseConnection()
 
 app.use('/auth', authRouter)
 app.use('/profile', profileRouter)

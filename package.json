@@ -20,6 +20,7 @@
     "@fullcalendar/timegrid": "^6.1.14",
     "@fullcalendar/vue3": "^6.1.14",
     "@mdi/font": "^7.4.47",
+    "@vercel/postgres": "^0.9.0",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
