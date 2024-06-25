@@ -12,7 +12,7 @@ const createPermanentToken = (email, password) => {
   return permanentToken
 }
 
-authRouter.post('/register', async (req, res) => {
+authRouter.post('https://hse-consult-app.vercel.app/register', async (req, res) => {
   const { email, password, fullName } = req.body
   const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
   const permanentToken = createPermanentToken(email, hashedPassword)
