@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"nodemon api/index.js\"",
+    "dev": "concurrently \"vite\" \"nodemon api/index.mjs\"",
     "build": "vite build && npm run initialize-db && npm run seed-db",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "format": "prettier --write src/",
     "initialize-db": "node api/data/database.js",
     "seed-db": "node api/data/seed.js",
-    "start": "node api/index.js"
+    "start": "node api/index.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.14",
