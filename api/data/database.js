@@ -13,6 +13,18 @@ export const initializeDatabase = async () => {
   const client = await pool.connect()
   try {
     await client.query(`
+      DROP TABLE IF EXISTS consultationRegistrations;
+      DROP TABLE IF EXISTS consultations;
+      DROP TABLE IF EXISTS profiles;
+      DROP TABLE IF EXISTS sections;
+      DROP TABLE IF EXISTS educationPrograms;
+      DROP TABLE IF EXISTS notifications;
+      DROP TABLE IF EXISTS chatMessages;
+      DROP TABLE IF EXISTS chatSessions;
+      DROP TABLE IF EXISTS users;
+    `)
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email TEXT UNIQUE,
