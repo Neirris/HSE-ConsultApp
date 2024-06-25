@@ -4,47 +4,12 @@
     {
       "src": "api/index.mjs",
       "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/auth/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/profile/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/users/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/chats/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/events/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/notifications/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/admin/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/api/index.mjs"
     }
   ],
   "env": {
