@@ -15,7 +15,7 @@ const pool = new Pool({
   connectionString: process.env.POSTGRES_URL
 })
 
-const defaultProfileImagePath = path.resolve(__dirname, '../assets/icons/DefaultPFP.png')
+const defaultProfileImagePath = path.resolve(__dirname, './assets/icons/DefaultPFP.png')
 const defaultProfileImage = fs.readFileSync(defaultProfileImagePath, { encoding: 'base64' })
 
 export const initializeDatabase = async () => {
