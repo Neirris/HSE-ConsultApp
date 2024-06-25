@@ -37,5 +37,5 @@ app.use('/admin', adminRouter)
 app.get('/', (req, res) => {
   res.redirect('/auth')
 })
-
+#try
 export default app
