@@ -105,7 +105,7 @@
                                             {{ event.title }}
                                             <span class="event-date">({{ formatDate(event.start) }} - {{
                                                 formatTime(event.end)
-                                                }})</span>
+                                            }})</span>
                                         </h3>
                                     </div>
                                     <div class="event-actions">

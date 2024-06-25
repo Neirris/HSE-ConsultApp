@@ -59,8 +59,4 @@ const createNotification = (userId, message, link, senderId) => {
   )
 }
 
-const sendNotification = (io, userId, message, link) => {
-  io.to(userId).emit('notification', { message, link })
-}
-
-export { notificationsRouter, createNotification, sendNotification }
+export { notificationsRouter, createNotification }

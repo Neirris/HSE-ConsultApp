@@ -44,8 +44,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { io } from 'socket.io-client';
 import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const route = useRoute();
 const sessionId = route.params.id;
@@ -54,19 +55,10 @@ const newMessage = ref('');
 const currentUserId = ref(null);
 const chatPartnerName = ref('');
 const chatExists = ref(true);
-const socket = io('http://localhost:3000');
-
-socket.on('connect', () => {
-    socket.emit('join', sessionId);
-});
-
-socket.on('message', (message) => {
-    messages.value.push(message);
-});
 
 const fetchMessages = async () => {
     try {
-        const response = await axios.get(`http://localhost:3000/chats/messages/${sessionId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/chats/messages/${sessionId}`, { withCredentials: true });
         messages.value = response.data;
     } catch (error) {
         console.error('Не удалось загрузить сообщения:', error);
@@ -76,7 +68,7 @@ const fetchMessages = async () => {
 
 const fetchCurrentUserId = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         currentUserId.value = response.data.userId;
     } catch (error) {
         console.error('Не удалось получить данные текущего пользователя:', error);
@@ -85,7 +77,7 @@ const fetchCurrentUserId = async () => {
 
 const fetchChatPartnerName = async () => {
     try {
-        const response = await axios.get(`http://localhost:3000/chats/partner/${sessionId}`, { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/chats/partner/${sessionId}`, { withCredentials: true });
         chatPartnerName.value = response.data.fullName;
     } catch (error) {
         console.error('Не удалось получить имя собеседника:', error);
@@ -93,7 +85,7 @@ const fetchChatPartnerName = async () => {
     }
 };
 
-const sendMessage = () => {
+const sendMessage = async () => {
     if (newMessage.value.trim() === '') return;
 
     const message = {
@@ -102,8 +94,13 @@ const sendMessage = () => {
         senderId: currentUserId.value
     };
 
-    socket.emit('message', message);
-    newMessage.value = '';
+    try {
+        await axios.post(`${API_BASE_URL}/chats/messages`, message, { withCredentials: true });
+        newMessage.value = '';
+        await fetchMessages();
+    } catch (error) {
+        console.error('Не удалось отправить сообщение:', error);
+    }
 };
 
 const formatTime = (timestamp) => {

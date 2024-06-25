@@ -35,6 +35,8 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const router = useRouter();
 const searchQuery = ref('');
 const chats = ref([]);
@@ -42,7 +44,7 @@ const accountType = ref('');
 
 const fetchChats = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/chats/list', {
+        const response = await axios.get(`${API_BASE_URL}/chats/list`, {
             params: { searchQuery: searchQuery.value },
             withCredentials: true
         });
@@ -58,7 +60,7 @@ const searchChats = () => {
 
 const fetchAccountType = async () => {
     try {
-        const response = await axios.get('http://localhost:3000/profile-data', { withCredentials: true });
+        const response = await axios.get(`${API_BASE_URL}/profile-data`, { withCredentials: true });
         accountType.value = response.data.accountType;
     } catch (error) {
         console.error('Не удалось получить тип аккаунта:', error);

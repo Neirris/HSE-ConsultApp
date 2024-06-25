@@ -23,14 +23,14 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
-import { io } from 'socket.io-client'
-import { useToast, POSITION } from 'vue-toastification'
+// import { io } from 'socket.io-client'
+// import { useToast, POSITION } from 'vue-toastification'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const notifications = ref([])
 const router = useRouter()
-const toast = useToast()
+// const toast = useToast()
 
 const fetchNotifications = async () => {
     try {
@@ -86,19 +86,20 @@ const getIcon = (notification) => {
 
 onMounted(() => {
     fetchNotifications()
-
-    const socket = io(`${API_BASE_URL}`)
-    socket.on('notification', (data) => {
-        toast.info(data.message, {
-            timeout: 10000,
-            position: POSITION.TOP_RIGHT
-        })
-        fetchNotifications()
-    })
+    // Удаляем логику работы с сокетами
+    // const socket = io(`${API_BASE_URL}`)
+    // socket.on('notification', (data) => {
+    //     toast.info(data.message, {
+    //         timeout: 10000,
+    //         position: POSITION.TOP_RIGHT
+    //     })
+    //     fetchNotifications()
+    // })
 })
 </script>
 
 <style scoped>
+/* Ваши стили остаются без изменений */
 .notification-dropdown {
     position: absolute;
     top: 57px;
