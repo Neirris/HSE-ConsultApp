@@ -59,4 +59,7 @@ const createNotification = (userId, message, link, senderId) => {
   )
 }
 
-export { notificationsRouter, createNotification }
+export default {
+  notificationsRouter,
+  createNotification
+}

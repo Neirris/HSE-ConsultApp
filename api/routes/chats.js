@@ -1,6 +1,6 @@
 import express from 'express'
 import db from '../data/database.js'
-import { createNotification } from './notifications.js'
+import createNotification from './notifications.js'
 
 const router = express.Router()
 
