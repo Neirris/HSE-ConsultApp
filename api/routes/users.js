@@ -1,5 +1,5 @@
 import express from 'express'
-import db from '../../server/data/database.js'
+import db from '../data/database.js'
 const usersRouter = express.Router()
 
 usersRouter.get('/users', (req, res) => {
